@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gravity Garden</title>
+<style>
+  :root{
+    --void: #0a0e1a;
+    --void-deep: #05070d;
+    --well-gold: #e8b872;
+    --well-glow: #f5d9a8;
+    --particle-cyan: #6fd6d0;
+    --particle-dim: #3a5a58;
+    --ui-line: rgba(232, 184, 114, 0.25);
+    --ui-text: #cfd8e3;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: var(--void-deep);
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    touch-action: none;
+  }
+  #stage {
+    position: fixed; inset: 0;
+    display: block;
+  }
+  #hud {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    pointer-events: none;
+    z-index: 10;
+  }
+  #title {
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: var(--well-glow);
+    text-transform: uppercase;
+    opacity: 0.85;
+    font-weight: 600;
+  }
+  #stats {
+    font-size: 11px;
+    color: var(--ui-text);
+    opacity: 0.6;
+    letter-spacing: 0.04em;
+  }
+  #controls {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    justify-content: center;
+    z-index: 10;
+  }
+  .btn {
+    background: rgba(14, 20, 34, 0.85);
+    border: 1px solid var(--ui-line);
+    color: var(--ui-text);
+    padding: 11px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    user-select: none;
+    cursor: pointer;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .btn:active {
+    background: rgba(232, 184, 114, 0.18);
+    border-color: var(--well-gold);
+  }
+  #hint {
+    position: fixed;
+    top: 44px; left: 0; right: 0;
+    text-align: center;
+    font-size: 12px;
+    color: var(--ui-text);
+    opacity: 0;
+    pointer-events: none;
+    letter-spacing: 0.03em;
+    transition: opacity 1.2s;
+    z-index: 10;
+  }
+  #hint.show { opacity: 0.55; transition: opacity 0.3s; }
+</style>
+</head>
+<body>
+
+<canvas id="stage"></canvas>
+
+<div id="hud">
+  <div id="title">Gravity Garden</div>
+  <div id="stats"><span id="wellCount">0</span> wells · <span id="particleCount">0</span> particles</div>
+</div>
+
+<div id="hint">tap empty space to place a well · tap a well to flip attract/repel · drag to move · hold to remove</div>
+
+<div id="controls">
+  <div class="btn" id="btnSeed">+ Particles</div>
+  <div class="btn" id="btnBurst">Burst</div>
+  <div class="btn" id="btnClearParticles">Clear Particles</div>
+  <div class="btn" id="btnReset">Reset Garden</div>
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+  let W, H, DPR;
+
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---- State ----
+  const wells = [];       // {x, y, mass, r, pulsePhase}
+  const particles = [];   // {x, y, vx, vy, trail: [...]}
+  const MAX_PARTICLES = 260;
+  const G = 1400;          // gravity strength constant
+  const SOFTEN = 26;        // softening radius to avoid singularities
+  const WELL_BASE_MASS = 1;
+  const TRAIL_LEN = 10;
+
+  let wellCounter = 0;
+
+  function addWell(x, y){
+    wells.push({
+      x, y,
+      mass: WELL_BASE_MASS,
+      r: 9,
+      polarity: 1,   // 1 = attract, -1 = repel
+      pulsePhase: Math.random() * Math.PI * 2,
+      id: wellCounter++
+    });
+    updateStats();
+  }
+
+  function removeWell(w){
+    const idx = wells.indexOf(w);
+    if (idx >= 0) wells.splice(idx, 1);
+    updateStats();
+  }
+
+  function togglePolarity(w){
+    w.polarity *= -1;
+  }
+
+  function spawnParticle(x, y, vx, vy){
+    if (particles.length >= MAX_PARTICLES) particles.shift();
+    particles.push({
+      x, y, vx, vy,
+      trail: []
+    });
+  }
+
+  function seedParticles(n){
+    for (let i = 0; i < n; i++){
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Math.random() * Math.min(W, H) * 0.35;
+      const cx = W / 2 + (Math.random() - 0.5) * 40;
+      const cy = H / 2 + (Math.random() - 0.5) * 40;
+      const x = cx + Math.cos(angle) * dist;
+      const y = cy + Math.sin(angle) * dist;
+      const speed = 20 + Math.random() * 40;
+      const perp = angle + Math.PI / 2;
+      spawnParticle(x, y, Math.cos(perp) * speed * 0.02, Math.sin(perp) * speed * 0.02);
+    }
+    updateStats();
+  }
+
+  function burst(){
+    const x = W / 2 + (Math.random() - 0.5) * 100;
+    const y = H / 2 + (Math.random() - 0.5) * 100;
+    const n = 40;
+    for (let i = 0; i < n; i++){
+      const angle = (i / n) * Math.PI * 2;
+      const speed = 0.6 + Math.random() * 0.6;
+      spawnParticle(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed);
+    }
+    updateStats();
+  }
+
+  function clearParticles(){
+    particles.length = 0;
+    updateStats();
+  }
+
+  function resetGarden(){
+    wells.length = 0;
+    particles.length = 0;
+    updateStats();
+  }
+
+  function updateStats(){
+    document.getElementById('wellCount').textContent = wells.length;
+    document.getElementById('particleCount').textContent = particles.length;
+  }
+
+  // ---- Physics ----
+  function step(dt){
+    for (let p of particles){
+      let ax = 0, ay = 0;
+      for (let w of wells){
+        const dx = w.x - p.x;
+        const dy = w.y - p.y;
+        const distSq = dx*dx + dy*dy + SOFTEN*SOFTEN;
+        const dist = Math.sqrt(distSq);
+        const force = (G * w.mass * w.polarity) / distSq;
+        ax += force * dx / dist;
+        ay += force * dy / dist;
+      }
+      p.vx += ax * dt;
+      p.vy += ay * dt;
+      p.vx *= 0.9995;
+      p.vy *= 0.9995;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+
+      p.trail.push({x: p.x, y: p.y});
+      if (p.trail.length > TRAIL_LEN) p.trail.shift();
+    }
+
+    // wrap particles that drift far off-screen (soft margin)
+    const margin = 60;
+    for (let p of particles){
+      if (p.x < -margin) p.x = W + margin;
+      if (p.x > W + margin) p.x = -margin;
+      if (p.y < -margin) p.y = H + margin;
+      if (p.y > H + margin) p.y = -margin;
+    }
+
+    // remove particles absorbed into a well (very close + slow-ish orbit collapse)
+    for (let i = particles.length - 1; i >= 0; i--){
+      const p = particles[i];
+      for (let w of wells){
+        if (w.polarity < 0) continue; // repel wells don't absorb
+        const dx = w.x - p.x, dy = w.y - p.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < w.r * 0.8){
+          particles.splice(i, 1);
+          w.mass = Math.min(w.mass + 0.015, 3.2);
+          w.r = 9 + (w.mass - 1) * 4;
+          break;
+        }
+      }
+    }
+  }
+
+  // ---- Render ----
+  function render(t){
+    ctx.fillStyle = 'rgba(5, 7, 13, 0.28)';
+    ctx.fillRect(0, 0, W, H);
+
+    // particles + trails
+    for (let p of particles){
+      for (let i = 0; i < p.trail.length; i++){
+        const pt = p.trail[i];
+        const alpha = (i / p.trail.length) * 0.35;
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(111, 214, 208, ${alpha})`;
+        ctx.arc(pt.x, pt.y, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(180, 235, 230, 0.95)';
+      ctx.arc(p.x, p.y, 2.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // wells
+    for (let w of wells){
+      const pulse = 1 + Math.sin(t * 0.002 + w.pulsePhase) * 0.08;
+      const glowR = w.r * 3.2 * pulse;
+      const attract = w.polarity > 0;
+      const glowColor = attract ? '245, 217, 168' : '255, 122, 105';
+      const coreColor = attract ? '#e8b872' : '#ff7a69';
+
+      const grad = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, glowR);
+      grad.addColorStop(0, `rgba(${glowColor}, 0.35)`);
+      grad.addColorStop(1, `rgba(${glowColor}, 0)`);
+      ctx.beginPath();
+      ctx.fillStyle = grad;
+      ctx.arc(w.x, w.y, glowR, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.fillStyle = coreColor;
+      ctx.arc(w.x, w.y, w.r * pulse, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (!attract){
+        // faint ring to reinforce the "push" identity
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 122, 105, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.arc(w.x, w.y, w.r * pulse + 4, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      if (w === heldWell){
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(245, 217, 168, 0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.arc(w.x, w.y, w.r * pulse + 6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+  }
+
+  let lastTime = performance.now();
+  function loop(now){
+    const dt = Math.min((now - lastTime) / 16.6667, 2.5);
+    lastTime = now;
+    step(dt);
+    render(now);
+    requestAnimationFrame(loop);
+  }
+
+  // ---- Input ----
+  let heldWell = null;
+  let dragStart = null;
+  let pressTimer = null;
+  let didDrag = false;
+  let removedByHold = false;
+  const HOLD_MS = 480;
+  const DRAG_THRESHOLD = 8;
+
+  function findWellAt(x, y){
+    for (let i = wells.length - 1; i >= 0; i--){
+      const w = wells[i];
+      const dx = w.x - x, dy = w.y - y;
+      if (Math.sqrt(dx*dx + dy*dy) < Math.max(w.r + 14, 26)) return w;
+    }
+    return null;
+  }
+
+  function getPos(e){
+    if (e.touches && e.touches.length){
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  function onDown(e){
+    const pos = getPos(e);
+    didDrag = false;
+    removedByHold = false;
+    const w = findWellAt(pos.x, pos.y);
+    if (w){
+      heldWell = w;
+      dragStart = pos;
+      pressTimer = setTimeout(() => {
+        if (heldWell && !didDrag){
+          removeWell(heldWell);
+          heldWell = null;
+          removedByHold = true;
+        }
+      }, HOLD_MS);
+    } else {
+      dragStart = pos;
+    }
+  }
+
+  function onMove(e){
+    if (!dragStart) return;
+    const pos = getPos(e);
+    const dx = pos.x - dragStart.x, dy = pos.y - dragStart.y;
+    if (Math.sqrt(dx*dx + dy*dy) > DRAG_THRESHOLD){
+      didDrag = true;
+      if (heldWell){
+        clearTimeout(pressTimer);
+        heldWell.x = pos.x;
+        heldWell.y = pos.y;
+      }
+    }
+  }
+
+  function onUp(e){
+    clearTimeout(pressTimer);
+    if (!didDrag && heldWell){
+      togglePolarity(heldWell);
+    } else if (!didDrag && !heldWell && dragStart && !removedByHold){
+      addWell(dragStart.x, dragStart.y);
+    }
+    heldWell = null;
+    dragStart = null;
+    didDrag = false;
+    removedByHold = false;
+  }
+
+  canvas.addEventListener('mousedown', onDown);
+  canvas.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+  canvas.addEventListener('touchstart', (e) => { e.preventDefault(); onDown(e); }, { passive: false });
+  canvas.addEventListener('touchmove', (e) => { e.preventDefault(); onMove(e); }, { passive: false });
+  canvas.addEventListener('touchend', (e) => { e.preventDefault(); onUp(e); }, { passive: false });
+
+  document.getElementById('btnSeed').addEventListener('click', () => seedParticles(30));
+  document.getElementById('btnBurst').addEventListener('click', burst);
+  document.getElementById('btnClearParticles').addEventListener('click', clearParticles);
+  document.getElementById('btnReset').addEventListener('click', resetGarden);
+
+  // ---- Intro hint ----
+  const hint = document.getElementById('hint');
+  setTimeout(() => hint.classList.add('show'), 400);
+  setTimeout(() => hint.classList.remove('show'), 5500);
+
+  // ---- Initial state ----
+  addWell(W * 0.35, H * 0.5);
+  addWell(W * 0.65, H * 0.42);
+  seedParticles(50);
+
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

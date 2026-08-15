@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Particle Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0a0d12;
+    --panel: #11151c;
+    --panel-edge: #1c2330;
+    --cyan: #4dd8e6;
+    --cyan-dim: #2a7d86;
+    --text: #dfe6ec;
+    --text-dim: #7d8896;
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body{
+    margin:0; padding:0; overflow:hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    overscroll-behavior: none;
+  }
+  /* position:fixed fills the actual viewport of the artifact frame directly,
+     instead of relying on height:100%/100vh percentage chains through parent
+     elements — those can miscompute to near-zero inside an embedded webview,
+     which is what was collapsing the canvas in landscape. */
+  #app{
+    display:flex; flex-direction:column;
+    position:fixed;
+    inset:0;
+  }
+  #stage{
+    position:relative;
+    flex:1 1 auto;
+    min-height:0;
+    display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(120% 90% at 50% 0%, #131924 0%, var(--bg) 60%);
+    padding: 4px;
+  }
+  #simFrame{
+    /* fills the stage edge-to-edge (minus the small padding above) in any
+       orientation, instead of being locked to a landscape aspect ratio —
+       that's what was leaving big empty margins in portrait. */
+    position:relative;
+    width:100%;
+    height:100%;
+    border-radius: 10px;
+    overflow:hidden;
+    box-shadow:
+      0 0 0 1px var(--panel-edge),
+      0 0 40px -8px rgba(77,216,230,0.15),
+      inset 0 0 60px rgba(0,0,0,0.5);
+    background:#000;
+  }
+  #sim{
+    display:block;
+    width:100%; height:100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  #hud{
+    position:absolute; top:8px; left:10px;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 10px;
+    line-height:1.5;
+    color: var(--cyan);
+    text-shadow: 0 0 8px rgba(77,216,230,0.55);
+    letter-spacing: 0.03em;
+    pointer-events:none;
+    user-select:none;
+    white-space:pre;
+    opacity:0.9;
+  }
+  #hud .label{ color: var(--text-dim); text-shadow:none; }
+  #brushPreview{
+    position:absolute;
+    top:8px; right:10px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    color: var(--text-dim);
+    pointer-events:none;
+    user-select:none;
+    text-align:right;
+    line-height:1.5;
+  }
+  #brushCircle{
+    position:absolute;
+    border: 2px solid rgba(77,216,230,0.4);
+    border-radius:50%;
+    pointer-events:none;
+    user-select:none;
+    display:none;
+    box-shadow: 0 0 8px rgba(77,216,230,0.2);
+  }
+  #toolbar{
+    flex: 0 0 auto;
+    background: var(--panel);
+    border-top: 1px solid var(--panel-edge);
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  #toolbar::-webkit-scrollbar{ display:none; }
+  .mat-btn{
+    flex: 0 0 auto;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:3px;
+    width:52px; height:52px;
+    border-radius:9px;
+    border: 1.5px solid var(--panel-edge);
+    background: #161b24;
+    color: var(--text-dim);
+    font-family:'Inter', sans-serif;
+    font-size:9px;
+    font-weight:600;
+    letter-spacing:0.02em;
+    text-transform:uppercase;
+    cursor:pointer;
+    -webkit-user-select:none; user-select:none;
+    transition: border-color 0.12s, transform 0.08s;
+  }
+  .mat-btn:active{ transform: scale(0.94); }
+  .mat-swatch{
+    width:18px; height:18px;
+    border-radius:4px;
+  }
+  .active{
+    border-color: var(--cyan);
+    color: var(--text);
+    box-shadow: 0 0 10px -1px rgba(77,216,230,0.5);
+  }
+  .mat-btn.active{
+    border-color: var(--cyan);
+    color: var(--text);
+    box-shadow: 0 0 10px -1px rgba(77,216,230,0.5);
+  }
+  .divider{
+    flex:0 0 auto;
+    width:1px; height:34px;
+    background: var(--panel-edge);
+    margin: 0 2px;
+  }
+  .ctl-btn{
+    flex:0 0 auto;
+    height:52px; min-width:52px;
+    padding: 0 12px;
+    border-radius:9px;
+    border:1.5px solid var(--panel-edge);
+    background:#161b24;
+    color: var(--text);
+    font-family:'Inter', sans-serif;
+    font-size:11px;
+    font-weight:600;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:4px;
+    -webkit-user-select:none; user-select:none;
+  }
+  .ctl-btn:active{ transform: scale(0.96); }
+  .ctl-btn.brush-adj{ min-width:40px; font-size:16px; font-weight:600; }
+  #brushLabel{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    color: var(--text-dim);
+    min-width:34px;
+    text-align:center;
+  }
+  /* short landscape viewports (phones): shrink the toolbar so the canvas keeps most of the height */
+  @media (max-height:420px){
+    #toolbar{ padding: 5px 6px calc(5px + env(safe-area-inset-bottom,0px)); gap:4px; }
+    .mat-btn{ width:42px; height:42px; font-size:8px; }
+    .mat-swatch{ width:14px; height:14px; }
+    .ctl-btn{ height:42px; min-width:42px; font-size:10px; padding:0 9px; }
+    .ctl-btn.brush-adj{ min-width:32px; font-size:14px; }
+    .divider{ height:26px; }
+    #hud{ font-size:9px; }
+    #brushPreview{ font-size:9px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <div id="simFrame">
+      <canvas id="sim"></canvas>
+      <div id="hud"></div>
+      <div id="brushPreview"></div>
+      <div id="brushCircle"></div>
+    </div>
+  </div>
+  <div id="toolbar"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- material definitions ----------
+  var EMPTY=0, SAND=1, WATER=2, OIL=3, STONE=4, WOOD=5, FIRE=6, SMOKE=7, ACID=8;
+
+  var MATERIALS = [
+    { id: SAND,  name:"Sand",  color:[212,168,86] },
+    { id: WATER, name:"Water", color:[58,120,209] },
+    { id: OIL,   name:"Oil",   color:[70,55,26] },
+    { id: STONE, name:"Stone", color:[102,104,116] },
+    { id: WOOD,  name:"Wood",  color:[122,79,42] },
+    { id: FIRE,  name:"Fire",  color:[233,90,24] },
+    { id: ACID,  name:"Acid",  color:[152,222,73] },
+    { id: EMPTY, name:"Erase", color:[30,34,42] }
+  ];
+
+  var BG = [10,13,18];
+  var SMOKE_COLOR = [120,122,132];
+  var FIRE_HOT = [255,224,120];
+  var FIRE_COOL = [220,50,16];
+
+  var FIRE_LIFE_MIN=22, FIRE_LIFE_MAX=42;
+  var SMOKE_LIFE_MIN=60, SMOKE_LIFE_MAX=120;
+
+  // ---------- grid setup ----------
+  var COLS = 200, ROWS = 120; // fixed internal resolution (5:3 aspect)
+  var len = COLS*ROWS;
+  var grid = new Uint8Array(len);
+  var extra = new Uint16Array(len);
+  var variance = new Int8Array(len);
+  var moved = new Uint8Array(len);
+
+  for (var vi=0; vi<len; vi++){
+    variance[vi] = (Math.random()*3|0) - 1; // -1,0,1
+  }
+
+  function idx(x,y){ return y*COLS+x; }
+
+  // returns -1 for solid side/bottom walls, -2 for open top (void)
+  function get(x,y){
+    if (x<0 || x>=COLS || y>=ROWS) return -1;
+    if (y<0) return -2;
+    return grid[idx(x,y)];
+  }
+
+  function setCell(i, type, extraVal){
+    grid[i] = type;
+    extra[i] = extraVal || 0;
+  }
+
+  function swap(i,j){
+    var t = grid[i]; grid[i]=grid[j]; grid[j]=t;
+    var e = extra[i]; extra[i]=extra[j]; extra[j]=e;
+    moved[j] = 1;
+  }
+
+  function randSign(){ return Math.random()<0.5 ? -1 : 1; }
+
+  // ---------- physics rules ----------
+  function updateSand(x,y,i){
+    var below = get(x,y+1);
+    if (below===EMPTY || below===WATER || below===OIL){
+      swap(i, idx(x,y+1)); return;
+    }
+    var d = randSign();
+    var order = [d,-d];
+    for (var k=0;k<2;k++){
+      var nx=x+order[k], ny=y+1;
+      var nb = get(nx,ny);
+      if (nb===EMPTY || nb===WATER || nb===OIL){
+        swap(i, idx(nx,ny)); return;
+      }
+    }
+  }
+
+  function updateLiquid(x,y,i,selfType){
+    var below = get(x,y+1);
+    if (below===EMPTY){ swap(i, idx(x,y+1)); return; }
+    if (selfType===WATER && below===OIL){ swap(i, idx(x,y+1)); return; }
+    if (selfType===WATER && below===ACID){ swap(i, idx(x,y+1)); return; }
+    if (selfType===ACID){
+      // acid dissolves sand, wood, and oil; water neutralizes it
+      if (below===SAND || below===WOOD || below===OIL){
+        if (Math.random()<0.08){
+          setCell(idx(x,y+1), EMPTY, 0);
+          swap(i, idx(x,y+1));
+        }
+        return;
+      }
+      if (below===WATER){
+        setCell(i, EMPTY, 0); moved[i]=1; return;
+      }
+    }
+
+    var d = randSign();
+    var order = [d,-d];
+    for (var k=0;k<2;k++){
+      var nx=x+order[k], ny=y+1;
+      if (get(nx,ny)===EMPTY){ swap(i, idx(nx,ny)); return; }
+    }
+    for (var k2=0;k2<2;k2++){
+      var nx2=x+order[k2];
+      if (get(nx2,y)===EMPTY){ swap(i, idx(nx2,y)); return; }
+    }
+  }
+
+  var NEIGH8 = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
+
+  function updateWood(x,y,i){
+    for (var n=0;n<8;n++){
+      var nx=x+NEIGH8[n][0], ny=y+NEIGH8[n][1];
+      if (get(nx,ny)===FIRE && Math.random()<0.028){
+        setCell(i, FIRE, FIRE_LIFE_MIN + (Math.random()*(FIRE_LIFE_MAX-FIRE_LIFE_MIN)|0));
+        return;
+      }
+    }
+  }
+
+  function updateFire(x,y,i){
+    // water nearby extinguishes fire fast
+    for (var n=0;n<8;n++){
+      var nx=x+NEIGH8[n][0], ny=y+NEIGH8[n][1];
+      var nt = get(nx,ny);
+      if (nt===WATER){ extra[i] = Math.min(extra[i], 3); break; }
+    }
+
+    extra[i]--;
+    if (extra[i]<=0){
+      if (Math.random()<0.55){
+        setCell(i, SMOKE, SMOKE_LIFE_MIN + (Math.random()*(SMOKE_LIFE_MAX-SMOKE_LIFE_MIN)|0));
+      } else {
+        setCell(i, EMPTY, 0);
+      }
+      moved[i]=1;
+      return;
+    }
+
+    // ignite flammable neighbors
+    for (var n2=0;n2<8;n2++){
+      var nx2=x+NEIGH8[n2][0], ny2=y+NEIGH8[n2][1];
+      if (nx2<0||nx2>=COLS||ny2<0||ny2>=ROWS) continue;
+      var ni = idx(nx2,ny2);
+      var nt2 = grid[ni];
+      if (nt2===OIL && Math.random()<0.16){
+        setCell(ni, FIRE, FIRE_LIFE_MIN + (Math.random()*(FIRE_LIFE_MAX-FIRE_LIFE_MIN)|0));
+      } else if (nt2===WOOD && Math.random()<0.03){
+        setCell(ni, FIRE, FIRE_LIFE_MIN + (Math.random()*(FIRE_LIFE_MAX-FIRE_LIFE_MIN)|0));
+      }
+    }
+
+    // flicker upward occasionally
+    if (Math.random()<0.35){
+      var dx = randSign();
+      var ny3 = y-1, nx3 = x+dx;
+      if (get(nx3,ny3)===EMPTY){
+        swap(i, idx(nx3,ny3));
+      }
+    }
+  }
+
+  function updateSmoke(x,y,i){
+    extra[i]--;
+    if (extra[i]<=0){ setCell(i, EMPTY, 0); moved[i]=1; return; }
+
+    var above = get(x,y-1);
+    if (above===-2){ setCell(i, EMPTY, 0); moved[i]=1; return; }
+    if (above===EMPTY){ swap(i, idx(x,y-1)); return; }
+
+    var d = randSign();
+    var order=[d,-d];
+    for (var k=0;k<2;k++){
+      var nx=x+order[k], ny=y-1;
+      if (get(nx,ny)===EMPTY){ swap(i, idx(nx,ny)); return; }
+    }
+  }
+
+  function step(){
+    moved.fill(0);
+    for (var y=ROWS-1; y>=0; y--){
+      var leftToRight = (y % 2 === 0);
+      for (var xi=0; xi<COLS; xi++){
+        var x = leftToRight ? xi : (COLS-1-xi);
+        var i = idx(x,y);
+        if (moved[i]) continue;
+        var t = grid[i];
+        if (t===EMPTY || t===STONE) continue;
+        if (t===SAND) updateSand(x,y,i);
+        else if (t===WATER) updateLiquid(x,y,i,WATER);
+        else if (t===OIL) updateLiquid(x,y,i,OIL);
+        else if (t===ACID) updateLiquid(x,y,i,ACID);
+        else if (t===WOOD) updateWood(x,y,i);
+        else if (t===FIRE) updateFire(x,y,i);
+        else if (t===SMOKE) updateSmoke(x,y,i);
+      }
+    }
+  }
+
+  // ---------- rendering ----------
+  var canvas = document.getElementById('sim');
+  canvas.width = COLS; canvas.height = ROWS;
+  var ctx = canvas.getContext('2d', { alpha:false });
+  var imgData = ctx.createImageData(COLS, ROWS);
+  var buf = imgData.data;
+
+  function lerp(a,b,t){ return a + (b-a)*t; }
+
+  function colorFor(type, extraVal, vary, outArr){
+    switch(type){
+      case EMPTY:
+        outArr[0]=BG[0]; outArr[1]=BG[1]; outArr[2]=BG[2]; return;
+      case SAND:
+        outArr[0]=SAND_C0+vary*9; outArr[1]=SAND_C1+vary*7; outArr[2]=SAND_C2+vary*4; return;
+      case WATER:
+        outArr[0]=WATER_C0+vary*4; outArr[1]=WATER_C1+vary*6; outArr[2]=WATER_C2+vary*8; return;
+      case OIL:
+        outArr[0]=OIL_C0+vary*3; outArr[1]=OIL_C1+vary*3; outArr[2]=OIL_C2+vary*2; return;
+      case STONE:
+        outArr[0]=STONE_C0+vary*8; outArr[1]=STONE_C1+vary*8; outArr[2]=STONE_C2+vary*8; return;
+      case WOOD:
+        outArr[0]=WOOD_C0+vary*7; outArr[1]=WOOD_C1+vary*5; outArr[2]=WOOD_C2+vary*3; return;
+      case ACID:
+        outArr[0]=ACID_C0+vary*6; outArr[1]=ACID_C1+vary*8; outArr[2]=ACID_C2+vary*4; return;
+      case FIRE:
+        var t = Math.max(0, Math.min(1, extraVal / FIRE_LIFE_MAX));
+        outArr[0]=lerp(FIRE_COOL[0],FIRE_HOT[0],t);
+        outArr[1]=lerp(FIRE_COOL[1],FIRE_HOT[1],t);
+        outArr[2]=lerp(FIRE_COOL[2],FIRE_HOT[2],t);
+        return;
+      case SMOKE:
+        var f = Math.max(0, Math.min(1, extraVal / SMOKE_LIFE_MAX));
+        outArr[0]=lerp(BG[0],SMOKE_COLOR[0],f);
+        outArr[1]=lerp(BG[1],SMOKE_COLOR[1],f);
+        outArr[2]=lerp(BG[2],SMOKE_COLOR[2],f);
+        return;
+      default:
+        outArr[0]=255; outArr[1]=0; outArr[2]=255; return;
+    }
+  }
+
+  var SAND_C0=212, SAND_C1=168, SAND_C2=86;
+  var WATER_C0=58, WATER_C1=120, WATER_C2=209;
+  var OIL_C0=70, OIL_C1=55, OIL_C2=26;
+  var STONE_C0=102, STONE_C1=104, STONE_C2=116;
+  var WOOD_C0=122, WOOD_C1=79, WOOD_C2=42;
+  var ACID_C0=152, ACID_C1=222, ACID_C2=73;
+
+  var tmpColor = [0,0,0];
+
+  function render(){
+    for (var p=0; p<len; p++){
+      colorFor(grid[p], extra[p], variance[p], tmpColor);
+      var o = p*4;
+      buf[o]   = tmpColor[0];
+      buf[o+1] = tmpColor[1];
+      buf[o+2] = tmpColor[2];
+      buf[o+3] = 255;
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  // ---------- HUD ----------
+  var hud = document.getElementById('hud');
+  var counts = {};
+  var countdown = 0;
+  function updateHud(){
+    countdown--;
+    if (countdown>0) return;
+    countdown = 8;
+    counts[SAND]=0; counts[WATER]=0; counts[OIL]=0; counts[STONE]=0;
+    counts[WOOD]=0; counts[FIRE]=0; counts[SMOKE]=0; counts[ACID]=0;
+    for (var p=0;p<len;p++){
+      var t=grid[p];
+      if (t!==EMPTY) counts[t] = (counts[t]||0)+1;
+    }
+    hud.innerHTML =
+      '<span class="label">SAND</span> '+counts[SAND]+'\n'+
+      '<span class="label">WATER</span> '+counts[WATER]+'\n'+
+      '<span class="label">ACID</span> '+counts[ACID]+'\n'+
+      '<span class="label">FIRE</span> '+counts[FIRE]+'\n'+
+      '<span class="label">SMOKE</span> '+counts[SMOKE];
+  }
+
+  // ---------- input ----------
+  var currentMaterial = SAND;
+  var brushRadius = 3;
+  var painting = false;
+  var lastGX = null, lastGY = null;
+
+  function screenToGrid(clientX, clientY){
+    var rect = canvas.getBoundingClientRect();
+    var relX = (clientX - rect.left) / rect.width;
+    var relY = (clientY - rect.top) / rect.height;
+    return {
+      x: Math.floor(relX * COLS),
+      y: Math.floor(relY * ROWS)
+    };
+  }
+
+  function paintAt(gx, gy){
+    var r = brushRadius;
+    var r2 = r*r;
+    for (var dy=-r; dy<=r; dy++){
+      for (var dx=-r; dx<=r; dx++){
+        if (dx*dx+dy*dy > r2) continue;
+        var x = gx+dx, y = gy+dy;
+        if (x<0||x>=COLS||y<0||y>=ROWS) continue;
+        var i = idx(x,y);
+        if (currentMaterial===EMPTY){
+          setCell(i, EMPTY, 0);
+        } else if (currentMaterial===FIRE){
+          setCell(i, FIRE, FIRE_LIFE_MIN + (Math.random()*(FIRE_LIFE_MAX-FIRE_LIFE_MIN)|0));
+        } else {
+          setCell(i, currentMaterial, 0);
+        }
+      }
+    }
+  }
+
+  function paintLine(gx0,gy0,gx1,gy1){
+    var dx = gx1-gx0, dy = gy1-gy0;
+    var dist = Math.max(1, Math.round(Math.sqrt(dx*dx+dy*dy)));
+    var steps = Math.min(dist, 64);
+    for (var s=0; s<=steps; s++){
+      var t = s/steps;
+      paintAt(Math.round(gx0+dx*t), Math.round(gy0+dy*t));
+    }
+  }
+
+  canvas.addEventListener('pointerdown', function(e){
+    painting = true;
+    canvas.setPointerCapture(e.pointerId);
+    var g = screenToGrid(e.clientX, e.clientY);
+    paintAt(g.x, g.y);
+    lastGX = g.x; lastGY = g.y;
+  });
+  canvas.addEventListener('pointermove', function(e){
+    var g = screenToGrid(e.clientX, e.clientY);
+    updateBrushCircle(e.clientX, e.clientY);
+    if (!painting) return;
+    if (lastGX!==null){ paintLine(lastGX,lastGY,g.x,g.y); }
+    else { paintAt(g.x,g.y); }
+    lastGX = g.x; lastGY = g.y;
+  });
+  canvas.addEventListener('pointerenter', function(e){
+    document.getElementById('brushCircle').style.display='block';
+  });
+  function endPaint(){ painting=false; lastGX=null; lastGY=null; }
+  canvas.addEventListener('pointerup', endPaint);
+  canvas.addEventListener('pointercancel', endPaint);
+  canvas.addEventListener('pointerleave', function(e){
+    if (e.buttons===0) endPaint();
+    document.getElementById('brushCircle').style.display='none';
+  });
+
+  function updateBrushCircle(clientX, clientY){
+    var circle = document.getElementById('brushCircle');
+    var rect = canvas.getBoundingClientRect();
+    var size = (brushRadius * 2) * (rect.width / COLS);
+    circle.style.width = size + 'px';
+    circle.style.height = size + 'px';
+    circle.style.left = (clientX - rect.left - size/2) + 'px';
+    circle.style.top = (clientY - rect.top - size/2) + 'px';
+  }
+
+  // ---------- toolbar ----------
+  var toolbar = document.getElementById('toolbar');
+
+  MATERIALS.forEach(function(m){
+    var btn = document.createElement('div');
+    btn.className = 'mat-btn' + (m.id===currentMaterial ? ' active' : '');
+    btn.dataset.id = m.id;
+    var sw = document.createElement('div');
+    sw.className = 'mat-swatch';
+    sw.style.background = 'rgb('+m.color[0]+','+m.color[1]+','+m.color[2]+')';
+    if (m.id===EMPTY){
+      sw.style.border = '1.5px dashed #555';
+      sw.style.background = 'transparent';
+    }
+    var lbl = document.createElement('div');
+    lbl.textContent = m.name;
+    btn.appendChild(sw);
+    btn.appendChild(lbl);
+    btn.addEventListener('click', function(){
+      currentMaterial = m.id;
+      Array.prototype.forEach.call(toolbar.querySelectorAll('.mat-btn'), function(b){
+        b.classList.toggle('active', Number(b.dataset.id)===m.id);
+      });
+    });
+    toolbar.appendChild(btn);
+  });
+
+  var divider1 = document.createElement('div');
+  divider1.className = 'divider';
+  toolbar.appendChild(divider1);
+
+  var minusBtn = document.createElement('div');
+  minusBtn.className = 'ctl-btn brush-adj';
+  minusBtn.textContent = '\u2212';
+  minusBtn.addEventListener('click', function(){
+    brushRadius = Math.max(1, brushRadius-1);
+    brushLabel.textContent = 'R ' + brushRadius;
+  });
+  toolbar.appendChild(minusBtn);
+
+  var brushLabel = document.createElement('div');
+  brushLabel.id = 'brushLabel';
+  brushLabel.textContent = 'R ' + brushRadius;
+  toolbar.appendChild(brushLabel);
+
+  var plusBtn = document.createElement('div');
+  plusBtn.className = 'ctl-btn brush-adj';
+  plusBtn.textContent = '+';
+  plusBtn.addEventListener('click', function(){
+    brushRadius = Math.min(8, brushRadius+1);
+    brushLabel.textContent = 'R ' + brushRadius;
+  });
+  toolbar.appendChild(plusBtn);
+
+  var divider2 = document.createElement('div');
+  divider2.className = 'divider';
+  toolbar.appendChild(divider2);
+
+  var running = true;
+  var pauseBtn = document.createElement('div');
+  pauseBtn.className = 'ctl-btn';
+  pauseBtn.textContent = 'Pause';
+  pauseBtn.addEventListener('click', function(){
+    running = !running;
+    pauseBtn.textContent = running ? 'Pause' : 'Play';
+  });
+  toolbar.appendChild(pauseBtn);
+
+  var clearBtn = document.createElement('div');
+  clearBtn.className = 'ctl-btn';
+  clearBtn.textContent = 'Clear';
+  clearBtn.addEventListener('click', function(){
+    grid.fill(0); extra.fill(0);
+  });
+  toolbar.appendChild(clearBtn);
+
+  // ---------- main loop ----------
+  function loop(){
+    if (running) step();
+    render();
+    updateHud();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>

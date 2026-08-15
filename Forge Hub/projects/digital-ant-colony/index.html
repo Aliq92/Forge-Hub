@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Digital Ant Colony — Project Forge</title>
+<meta name="description" content="A living ant colony simulation: emergent foraging, pheromone trails, and colony growth, rendered on canvas." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐜</text></svg>" />
+<style>
+:root {
+  --soil-950: #0b0906;
+  --soil-900: #120e0a;
+  --soil-800: #1a140e;
+  --soil-700: #241b12;
+  --ink-100: #f2e9db;
+  --ink-300: #cabfaf;
+  --ink-400: #b6ab97;
+  --ink-500: #8d8171;
+  --amber-400: #ffb347;
+  --amber-500: #e8952e;
+  --amber-glow: rgba(255, 166, 71, 0.35);
+  --teal-400: #48e0c4;
+  --danger-400: #e2694f;
+  --border-soft: rgba(255, 230, 200, 0.08);
+  --panel-bg: rgba(20, 16, 11, 0.72);
+  --radius-md: 10px;
+  --radius-sm: 7px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(ellipse at 50% -10%, #241a10 0%, var(--soil-950) 55%) fixed;
+  color: var(--ink-100);
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "topbar topbar"
+    "stage  panel";
+  height: 100vh;
+  height: 100dvh;
+  gap: 1px;
+}
+
+/* ---------- Top bar ---------- */
+
+.topbar {
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 18px;
+  background: linear-gradient(180deg, var(--soil-800), var(--soil-900));
+  border-bottom: 1px solid var(--border-soft);
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark {
+  font-size: 28px;
+  filter: drop-shadow(0 0 6px var(--amber-glow));
+}
+
+.brand-text h1 {
+  font-size: 16px;
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink-100);
+}
+
+.brand-text p {
+  margin: 0;
+  font-size: 11px;
+  color: var(--ink-500);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hud {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 64px;
+}
+
+.stat-label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-500);
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--amber-400);
+}
+
+/* ---------- Stage / canvas ---------- */
+
+.stage {
+  grid-area: stage;
+  position: relative;
+  overflow: hidden;
+  background: var(--soil-950);
+}
+
+#canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.hint {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--ink-300);
+  background: var(--panel-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  animation: hintFade 8s ease forwards;
+}
+
+@keyframes hintFade {
+  0%, 60% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---------- Side panel ---------- */
+
+.panel {
+  grid-area: panel;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: linear-gradient(180deg, var(--soil-800), var(--soil-900));
+  border-left: 1px solid var(--border-soft);
+  overflow-y: auto;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.control-row {
+  display: flex;
+  gap: 8px;
+}
+
+.control-row.two-up .btn {
+  flex: 1;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.group-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-500);
+}
+
+.speed-group {
+  display: flex;
+  gap: 6px;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--border-soft);
+  background: var(--soil-700);
+  color: var(--ink-100);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+  flex: 1;
+}
+
+.btn:hover {
+  background: #2c2116;
+  border-color: rgba(255, 200, 140, 0.22);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn.active,
+.speed-btn.active {
+  background: var(--amber-500);
+  border-color: var(--amber-500);
+  color: #201305;
+}
+
+.btn-primary {
+  background: var(--amber-500);
+  color: #201305;
+  border-color: var(--amber-500);
+}
+
+.btn-primary:hover {
+  background: var(--amber-400);
+}
+
+.btn-primary.active {
+  background: var(--soil-700);
+  color: var(--ink-100);
+  border-color: var(--border-soft);
+}
+
+.btn-danger {
+  background: transparent;
+  border-color: rgba(226, 105, 79, 0.4);
+  color: var(--danger-400);
+}
+
+.btn-danger:hover {
+  background: rgba(226, 105, 79, 0.12);
+}
+
+.btn-danger.confirm {
+  background: var(--danger-400);
+  color: #2a0e08;
+  border-color: var(--danger-400);
+}
+
+.shortcuts {
+  margin: 4px 0 0;
+  font-size: 10.5px;
+  color: var(--ink-500);
+  line-height: 1.6;
+}
+
+kbd {
+  font-family: inherit;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--soil-700);
+  border: 1px solid var(--border-soft);
+  color: var(--ink-300);
+}
+
+/* ---------- Event log ---------- */
+
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  flex: 1;
+}
+
+.log h2 {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-500);
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 6px;
+}
+
+#eventLog {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+#eventLog li {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-300);
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  animation: logIn 0.3s ease;
+}
+
+.log-msg {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.log-time {
+  color: var(--teal-400);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+@keyframes logIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Scrollbars (webkit) ---------- */
+
+.panel::-webkit-scrollbar,
+#eventLog::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panel::-webkit-scrollbar-thumb,
+#eventLog::-webkit-scrollbar-thumb {
+  background: var(--soil-700);
+  border-radius: 4px;
+}
+
+/* ---------- Responsive: tablet / mobile ---------- */
+
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "topbar"
+      "stage"
+      "panel";
+  }
+
+  .topbar {
+    padding: 8px 12px;
+  }
+
+  .brand-text p {
+    display: none;
+  }
+
+  .hud {
+    gap: 10px;
+  }
+
+  .stat {
+    min-width: 52px;
+    align-items: flex-start;
+  }
+
+  .stat-value {
+    font-size: 14px;
+  }
+
+  .panel {
+    border-left: none;
+    border-top: 1px solid var(--border-soft);
+    max-height: 40vh;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .controls {
+    flex: 1 1 220px;
+  }
+
+  .log {
+    flex: 1 1 220px;
+  }
+}
+
+@media (max-width: 520px) {
+  .brand-text h1 {
+    font-size: 14px;
+  }
+
+  .hud {
+    gap: 8px;
+  }
+
+  .stat {
+    min-width: 44px;
+  }
+
+  .stat-label {
+    font-size: 8.5px;
+  }
+
+  .stat-value {
+    font-size: 13px;
+  }
+
+  .panel {
+    flex-direction: column;
+    max-height: 46vh;
+  }
+
+  .shortcuts {
+    display: none;
+  }
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">🐜</span>
+      <div class="brand-text">
+        <h1>Digital Ant Colony</h1>
+        <p>Project Forge · Simulation 01</p>
+      </div>
+    </div>
+
+    <div class="hud" id="hud" aria-label="Colony statistics">
+      <div class="stat">
+        <span class="stat-label">Population</span>
+        <span class="stat-value" id="statPopulation">–</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Stored Food</span>
+        <span class="stat-value" id="statStored">–</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Collected</span>
+        <span class="stat-value" id="statCollected">–</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Food Sources</span>
+        <span class="stat-value" id="statFoodSources">–</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Sim Time</span>
+        <span class="stat-value" id="statTime">00:00</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="stage">
+    <canvas id="canvas" aria-label="Ant colony simulation"></canvas>
+    <p class="hint">Click or tap the world to drop food</p>
+  </main>
+
+  <aside class="panel">
+    <section class="controls" aria-label="Simulation controls">
+      <div class="control-row">
+        <button id="btnPause" class="btn btn-primary" type="button">Pause</button>
+      </div>
+
+      <div class="control-group">
+        <span class="group-label">Speed</span>
+        <div class="speed-group" role="group" aria-label="Simulation speed">
+          <button class="btn speed-btn" data-speed="0.5" type="button">0.5x</button>
+          <button class="btn speed-btn active" data-speed="1" type="button">1x</button>
+          <button class="btn speed-btn" data-speed="2" type="button">2x</button>
+          <button class="btn speed-btn" data-speed="4" type="button">4x</button>
+        </div>
+      </div>
+
+      <div class="control-row two-up">
+        <button id="btnAddAnt" class="btn" type="button">+ Ant</button>
+        <button id="btnAddFood" class="btn" type="button">+ Food</button>
+      </div>
+
+      <div class="control-row">
+        <button id="btnTogglePher" class="btn" type="button" aria-pressed="true">Pheromones: On</button>
+      </div>
+
+      <div class="control-row">
+        <button id="btnReset" class="btn btn-danger" type="button">Reset Colony</button>
+      </div>
+
+      <p class="shortcuts">
+        <kbd>Space</kbd> pause &nbsp; <kbd>1-4</kbd> speed &nbsp; <kbd>A</kbd> ant &nbsp;
+        <kbd>F</kbd> food &nbsp; <kbd>P</kbd> trails &nbsp; <kbd>R</kbd> reset
+      </p>
+    </section>
+
+    <section class="log" aria-label="Event log">
+      <h2>Event Log</h2>
+      <ul id="eventLog"></ul>
+    </section>
+  </aside>
+
+</div>
+
+<script>
+// Shared math helpers and tunable simulation constants.
+// Loaded first (classic scripts share one global scope, so later files can
+// use TAU, CONFIG, rand(), etc. without any import/export wiring).
+
+const TAU = Math.PI * 2;
+
+function rand(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+function randInt(min, max) {
+  return Math.floor(rand(min, max + 1));
+}
+
+function clamp(value, min, max) {
+  return value < min ? min : value > max ? max : value;
+}
+
+function dist(x1, y1, x2, y2) {
+  return Math.hypot(x2 - x1, y2 - y1);
+}
+
+// Shortest signed angular difference from a to b, in (-PI, PI].
+function angleDiff(a, b) {
+  let d = (b - a) % TAU;
+  if (d > Math.PI) d -= TAU;
+  if (d < -Math.PI) d += TAU;
+  return d;
+}
+
+// Rotate `angle` toward `target` by at most `maxStep` radians.
+function turnToward(angle, target, maxStep) {
+  const diff = angleDiff(angle, target);
+  if (Math.abs(diff) <= maxStep) return angle + diff;
+  return angle + Math.sign(diff) * maxStep;
+}
+
+// Central tuning knobs for the whole simulation. Kept in one place so the
+// colony/ant/pheromone behaviour can be balanced without hunting through files.
+const CONFIG = {
+  pheromone: {
+    cellSize: 9,          // px per grid cell
+    max: 8,                // clamp per-cell trail strength
+    evaporationPerSecond: 0.985, // multiplier applied once per simulated second
+    depositAmount: 3.2,    // trail strength added per second while returning with food
+    senseDistance: 22,     // how far ahead ants sample the trail
+    senseSpread: Math.PI / 3.4,
+    minSenseValue: 0.06,   // ignore trails weaker than this (keeps wandering organic)
+  },
+  ant: {
+    baseSpeed: 46,         // px/sec
+    speedVariance: 14,
+    wanderJitter: 1.1,     // rad/sec random-walk strength while searching
+    returnJitter: 0.35,    // rad/sec wiggle strength while returning
+    sensorRadius: 15,      // food-detection radius
+    nestSteerPerSecond: 1.6, // how eagerly a returning ant turns toward the nest
+    pheromoneSteerPerSecond: 2.2,
+    edgeMargin: 26,
+    edgeSteerPerSecond: 3.2,
+  },
+  colony: {
+    initialAnts: 50,
+    maxAnts: 260,
+    initialFood: 6,
+    growthFoodPerAnt: 16,   // stored food spent to raise one new ant
+    nestRadius: 24,
+    depositRadius: 26,      // distance to nest center counted as "arrived"
+  },
+  world: {
+    minFoodAmount: 45,
+    maxFoodAmount: 120,
+    minFoodDistFromNest: 130,
+    edgePadding: 40,
+  },
+};
+
+// A simple 2D grid of "food trail" pheromone strength. Ants returning with
+// food deposit into it; it evaporates every tick; searching ants sample it
+// a short distance ahead to decide whether to bend their path.
+class PheromoneGrid {
+  constructor(width, height, cellSize) {
+    this.reset(width, height, cellSize);
+  }
+
+  reset(width, height, cellSize) {
+    this.cellSize = cellSize;
+    this.width = width;
+    this.height = height;
+    this.cols = Math.max(1, Math.ceil(width / cellSize));
+    this.rows = Math.max(1, Math.ceil(height / cellSize));
+    this.cells = new Float32Array(this.cols * this.rows);
+  }
+
+  cellIndex(x, y) {
+    const cx = clamp(Math.floor(x / this.cellSize), 0, this.cols - 1);
+    const cy = clamp(Math.floor(y / this.cellSize), 0, this.rows - 1);
+    return cy * this.cols + cx;
+  }
+
+  deposit(x, y, amount) {
+    if (x < 0 || y < 0 || x >= this.width || y >= this.height) return;
+    const i = this.cellIndex(x, y);
+    const next = this.cells[i] + amount;
+    this.cells[i] = next > CONFIG.pheromone.max ? CONFIG.pheromone.max : next;
+  }
+
+  sampleAt(x, y) {
+    if (x < 0 || y < 0 || x >= this.width || y >= this.height) return 0;
+    return this.cells[this.cellIndex(x, y)];
+  }
+
+  evaporate(factor) {
+    const cells = this.cells;
+    for (let i = 0; i < cells.length; i++) {
+      if (cells[i] === 0) continue;
+      const next = cells[i] * factor;
+      cells[i] = next < 0.01 ? 0 : next;
+    }
+  }
+
+  maxValue() {
+    let max = 0;
+    const cells = this.cells;
+    for (let i = 0; i < cells.length; i++) {
+      if (cells[i] > max) max = cells[i];
+    }
+    return max;
+  }
+
+  // Draws every non-trivial cell as a soft glowing tile. Cheap enough at the
+  // grid sizes this simulation uses (a few thousand cells) to run every frame.
+  draw(ctx) {
+    const { cols, rows, cellSize, cells } = this;
+    for (let cy = 0; cy < rows; cy++) {
+      for (let cx = 0; cx < cols; cx++) {
+        const v = cells[cy * cols + cx];
+        if (v < 0.05) continue;
+        const alpha = Math.min(0.55, v / CONFIG.pheromone.max) * 0.6;
+        ctx.fillStyle = `rgba(64, 226, 199, ${alpha.toFixed(3)})`;
+        ctx.fillRect(cx * cellSize, cy * cellSize, cellSize, cellSize);
+      }
+    }
+  }
+}
+
+// A single food source: a finite cluster of nutrients that ants whittle
+// down one unit at a time. Visually it's a small cluster of organic blobs
+// that shrink together as the source is depleted.
+class FoodSource {
+  constructor(x, y, amount) {
+    this.x = x;
+    this.y = y;
+    this.maxAmount = amount;
+    this.amount = amount;
+    this.discovered = false;
+    this.depleted = false;
+
+    // Precompute a handful of irregular blob offsets so the cluster reads as
+    // organic rather than a perfect circle, and shrinks in place consistently.
+    const blobCount = randInt(5, 8);
+    this.blobs = [];
+    for (let i = 0; i < blobCount; i++) {
+      const angle = rand(0, TAU);
+      const dist = rand(0, this.baseRadius() * 0.6);
+      this.blobs.push({
+        ox: Math.cos(angle) * dist,
+        oy: Math.sin(angle) * dist,
+        r: rand(3, 6),
+      });
+    }
+  }
+
+  baseRadius() {
+    return 6 + Math.sqrt(this.maxAmount) * 1.6;
+  }
+
+  get radius() {
+    return Math.max(4, this.baseRadius() * this.fraction());
+  }
+
+  fraction() {
+    return this.amount / this.maxAmount;
+  }
+
+  takeUnit() {
+    if (this.amount <= 0) return false;
+    this.amount -= 1;
+    if (this.amount <= 0) {
+      this.amount = 0;
+      this.depleted = true;
+    }
+    return true;
+  }
+
+  draw(ctx) {
+    const f = Math.max(0.12, this.fraction());
+    ctx.fillStyle = this.discovered
+      ? "rgba(150, 214, 110, 0.9)"
+      : "rgba(120, 176, 96, 0.85)";
+    for (const b of this.blobs) {
+      ctx.beginPath();
+      ctx.arc(this.x + b.ox * f, this.y + b.oy * f, b.r * f, 0, TAU);
+      ctx.fill();
+    }
+    if (this.discovered) {
+      ctx.strokeStyle = "rgba(190, 230, 150, 0.35)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.baseRadius() * f + 5, 0, TAU);
+      ctx.stroke();
+    }
+  }
+}
+
+// A single ant. Behaviour is a tiny state machine (searching / returning)
+// driven entirely by local information: what it can sense right where it
+// is standing. There is no global pathfinding and no memory of a route —
+// any efficient paths that appear are an emergent side effect of pheromone
+// reinforcement, exactly as in a real colony.
+class Ant {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.heading = rand(0, TAU);
+    this.speed = CONFIG.ant.baseSpeed + rand(-CONFIG.ant.speedVariance, CONFIG.ant.speedVariance);
+    this.state = "searching"; // "searching" | "returning"
+
+    // Per-ant trait: how strongly this individual bends toward pheromone
+    // trails. Low-affinity ants behave like scouts, high-affinity ants
+    // behave like recruits — a cheap way to keep the colony varied.
+    this.pheromoneAffinity = rand(0.3, 1);
+  }
+
+  get carrying() {
+    return this.state === "returning";
+  }
+
+  update(dt, colony) {
+    if (this.state === "searching") {
+      this.updateSearching(dt, colony);
+    } else {
+      this.updateReturning(dt, colony);
+    }
+
+    this.steerFromEdges(dt, colony.world);
+
+    this.x += Math.cos(this.heading) * this.speed * dt;
+    this.y += Math.sin(this.heading) * this.speed * dt;
+    this.x = clamp(this.x, 0, colony.world.width);
+    this.y = clamp(this.y, 0, colony.world.height);
+  }
+
+  updateSearching(dt, colony) {
+    // Organic random walk.
+    this.heading += (Math.random() * 2 - 1) * CONFIG.ant.wanderJitter * dt;
+
+    // Sample the trail slightly ahead-left / ahead / ahead-right and bend
+    // gently toward whichever direction smells strongest of food. This is
+    // deliberately imperfect: it only ever nudges the heading, so ants
+    // still wander off real trails fairly often.
+    const grid = colony.grid;
+    const d = CONFIG.pheromone.senseDistance;
+    const spread = CONFIG.pheromone.senseSpread;
+    const left = grid.sampleAt(
+      this.x + Math.cos(this.heading - spread) * d,
+      this.y + Math.sin(this.heading - spread) * d
+    );
+    const center = grid.sampleAt(
+      this.x + Math.cos(this.heading) * d,
+      this.y + Math.sin(this.heading) * d
+    );
+    const right = grid.sampleAt(
+      this.x + Math.cos(this.heading + spread) * d,
+      this.y + Math.sin(this.heading + spread) * d
+    );
+    const strongest = Math.max(left, center, right);
+    if (strongest > CONFIG.pheromone.minSenseValue) {
+      let turnDir = 0;
+      if (left > center && left >= right) turnDir = -1;
+      else if (right > center && right > left) turnDir = 1;
+      if (turnDir !== 0) {
+        this.heading +=
+          turnDir * this.pheromoneAffinity * CONFIG.ant.pheromoneSteerPerSecond * dt;
+      }
+    }
+
+    this.trySenseFood(colony);
+  }
+
+  trySenseFood(colony) {
+    for (const food of colony.food) {
+      if (food.amount <= 0) continue;
+      const reach = CONFIG.ant.sensorRadius + food.radius;
+      if (dist(this.x, this.y, food.x, food.y) > reach) continue;
+
+      if (!food.discovered) {
+        food.discovered = true;
+        colony.pushEvent("Food source discovered");
+      }
+
+      if (food.takeUnit()) {
+        this.state = "returning";
+        const toNest = Math.atan2(colony.nest.y - this.y, colony.nest.x - this.x);
+        this.heading = toNest + rand(-0.4, 0.4);
+        if (food.depleted) colony.pushEvent("Food source exhausted");
+      }
+      break;
+    }
+  }
+
+  updateReturning(dt, colony) {
+    const desired = Math.atan2(colony.nest.y - this.y, colony.nest.x - this.x);
+    this.heading = turnToward(this.heading, desired, CONFIG.ant.nestSteerPerSecond * dt);
+    this.heading += (Math.random() * 2 - 1) * CONFIG.ant.returnJitter * dt;
+
+    colony.grid.deposit(this.x, this.y, CONFIG.pheromone.depositAmount * dt);
+
+    if (dist(this.x, this.y, colony.nest.x, colony.nest.y) <= CONFIG.colony.depositRadius) {
+      colony.deliverFood(1);
+      this.state = "searching";
+      this.heading = rand(0, TAU);
+    }
+  }
+
+  steerFromEdges(dt, world) {
+    const m = CONFIG.ant.edgeMargin;
+    let pushX = 0;
+    let pushY = 0;
+    if (this.x < m) pushX += 1;
+    if (this.x > world.width - m) pushX -= 1;
+    if (this.y < m) pushY += 1;
+    if (this.y > world.height - m) pushY -= 1;
+    if (pushX !== 0 || pushY !== 0) {
+      const target = Math.atan2(pushY, pushX);
+      this.heading = turnToward(this.heading, target, CONFIG.ant.edgeSteerPerSecond * dt);
+    }
+  }
+
+  // Adds this ant's body as a closed subpath to `ctx` without filling it,
+  // so the caller can batch many ants into a single fill() call.
+  appendShape(ctx) {
+    const c = Math.cos(this.heading);
+    const s = Math.sin(this.heading);
+    const len = 4.6;
+    const wid = 1.9;
+    const tipX = this.x + c * len;
+    const tipY = this.y + s * len;
+    const backX = this.x - c * len * 0.75;
+    const backY = this.y - s * len * 0.75;
+    const leftX = this.x - s * wid;
+    const leftY = this.y + c * wid;
+    const rightX = this.x + s * wid;
+    const rightY = this.y - c * wid;
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(leftX, leftY);
+    ctx.lineTo(backX, backY);
+    ctx.lineTo(rightX, rightY);
+    ctx.closePath();
+  }
+}
+
+// Orchestrates one ant colony: the nest, every ant, every food source, the
+// pheromone field, and the running stats/event log the HUD reads from.
+class Colony {
+  constructor(width, height) {
+    this.world = { width, height };
+    this.reset();
+  }
+
+  reset() {
+    const { width, height } = this.world;
+    this.nest = { x: width / 2, y: height / 2, radius: CONFIG.colony.nestRadius };
+    this.grid = new PheromoneGrid(width, height, CONFIG.pheromone.cellSize);
+    this.ants = [];
+    this.food = [];
+    this.storedFood = 0;
+    this.foodCollectedTotal = 0;
+    this.elapsed = 0;
+    this.events = [];
+    this.showPheromones = true;
+    this._trailCheckTimer = 0;
+    this._lastMajorTrailAt = -999;
+    this._growthMilestone = 0;
+
+    for (let i = 0; i < CONFIG.colony.initialAnts; i++) this.spawnAnt();
+    for (let i = 0; i < CONFIG.colony.initialFood; i++) this.spawnRandomFood();
+  }
+
+  spawnAnt() {
+    if (this.ants.length >= CONFIG.colony.maxAnts) return null;
+    const angle = rand(0, TAU);
+    const r = this.nest.radius * 0.6;
+    const ant = new Ant(this.nest.x + Math.cos(angle) * r, this.nest.y + Math.sin(angle) * r);
+    this.ants.push(ant);
+    return ant;
+  }
+
+  addFoodAt(x, y, amount) {
+    const pad = CONFIG.world.edgePadding;
+    const cx = clamp(x, pad, this.world.width - pad);
+    const cy = clamp(y, pad, this.world.height - pad);
+    const food = new FoodSource(cx, cy, amount);
+    this.food.push(food);
+    return food;
+  }
+
+  spawnRandomFood() {
+    const pad = CONFIG.world.edgePadding;
+    let x, y, tries = 0;
+    do {
+      x = rand(pad, this.world.width - pad);
+      y = rand(pad, this.world.height - pad);
+      tries++;
+    } while (
+      dist(x, y, this.nest.x, this.nest.y) < CONFIG.world.minFoodDistFromNest &&
+      tries < 25
+    );
+    const amount = randInt(CONFIG.world.minFoodAmount, CONFIG.world.maxFoodAmount);
+    return this.addFoodAt(x, y, amount);
+  }
+
+  deliverFood(amount) {
+    const before = this.foodCollectedTotal;
+    this.storedFood += amount;
+    this.foodCollectedTotal += amount;
+
+    if (Math.floor(this.foodCollectedTotal / 40) > Math.floor(before / 40)) {
+      this.pushEvent("Colony stores are growing");
+    }
+
+    while (
+      this.storedFood >= CONFIG.colony.growthFoodPerAnt &&
+      this.ants.length < CONFIG.colony.maxAnts
+    ) {
+      this.storedFood -= CONFIG.colony.growthFoodPerAnt;
+      this.spawnAnt();
+    }
+  }
+
+  pushEvent(message) {
+    this.events.unshift({ message, time: this.elapsed });
+    if (this.events.length > 8) this.events.length = 8;
+  }
+
+  resizeWorld(width, height) {
+    this.world.width = width;
+    this.world.height = height;
+    this.nest.x = width / 2;
+    this.nest.y = height / 2;
+    this.grid.reset(width, height, CONFIG.pheromone.cellSize);
+
+    const pad = CONFIG.world.edgePadding;
+    for (const ant of this.ants) {
+      ant.x = clamp(ant.x, 0, width);
+      ant.y = clamp(ant.y, 0, height);
+    }
+    for (const f of this.food) {
+      f.x = clamp(f.x, pad, width - pad);
+      f.y = clamp(f.y, pad, height - pad);
+    }
+  }
+
+  update(dt) {
+    this.elapsed += dt;
+
+    const evapFactor = Math.pow(CONFIG.pheromone.evaporationPerSecond, dt);
+    this.grid.evaporate(evapFactor);
+
+    for (const ant of this.ants) ant.update(dt, this);
+
+    if (this.food.some((f) => f.depleted)) {
+      this.food = this.food.filter((f) => !f.depleted);
+    }
+
+    this._trailCheckTimer += dt;
+    if (this._trailCheckTimer > 3) {
+      this._trailCheckTimer = 0;
+      const maxVal = this.grid.maxValue();
+      if (maxVal > CONFIG.pheromone.max * 0.75 && this.elapsed - this._lastMajorTrailAt > 20) {
+        this._lastMajorTrailAt = this.elapsed;
+        this.pushEvent("Major trail established");
+      }
+    }
+  }
+}
+
+// Wires the Colony simulation up to the canvas, the HUD, and the controls.
+// Nothing simulation-related lives here — this file only renders state and
+// forwards user input, so the actual behaviour stays in js/*.js.
+
+(function () {
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+
+  const els = {
+    population: document.getElementById("statPopulation"),
+    stored: document.getElementById("statStored"),
+    collected: document.getElementById("statCollected"),
+    foodSources: document.getElementById("statFoodSources"),
+    time: document.getElementById("statTime"),
+    eventLog: document.getElementById("eventLog"),
+    btnPause: document.getElementById("btnPause"),
+    btnAddAnt: document.getElementById("btnAddAnt"),
+    btnAddFood: document.getElementById("btnAddFood"),
+    btnTogglePher: document.getElementById("btnTogglePher"),
+    btnReset: document.getElementById("btnReset"),
+    speedButtons: Array.from(document.querySelectorAll(".speed-btn")),
+  };
+
+  let colony = null;
+  let paused = false;
+  let speedMultiplier = 1;
+  let lastTime = null;
+  let hudTimer = 0;
+  let lastLoggedEvent = null;
+  let clickMarkers = [];
+
+  const MAX_DPR = 2;
+
+  function sizeCanvasToContainer() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+    const width = Math.max(200, Math.round(rect.width));
+    const height = Math.max(200, Math.round(rect.height));
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { width, height };
+  }
+
+  function init() {
+    const { width, height } = sizeCanvasToContainer();
+    colony = new Colony(width, height);
+    bindControls();
+    window.addEventListener("resize", debounce(handleResize, 150));
+    window.addEventListener("orientationchange", debounce(handleResize, 150));
+    requestAnimationFrame(frame);
+  }
+
+  function handleResize() {
+    const { width, height } = sizeCanvasToContainer();
+    colony.resizeWorld(width, height);
+  }
+
+  function debounce(fn, wait) {
+    let t;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), wait);
+    };
+  }
+
+  // ---------- Main loop ----------
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (lastTime === null) {
+      lastTime = now;
+      return;
+    }
+    let dt = (now - lastTime) / 1000;
+    lastTime = now;
+    dt = Math.min(dt, 0.05); // guard against tab-backgrounding jumps
+
+    updateMarkers(dt);
+    if (!paused) colony.update(dt * speedMultiplier);
+
+    render();
+
+    hudTimer += dt;
+    if (hudTimer > 0.2) {
+      hudTimer = 0;
+      updateHud();
+    }
+    if (colony.events[0] && colony.events[0] !== lastLoggedEvent) {
+      lastLoggedEvent = colony.events[0];
+      renderEventLog();
+    }
+  }
+
+  // ---------- Rendering ----------
+
+  function render() {
+    const { width, height } = colony.world;
+    ctx.fillStyle = "#0b0906";
+    ctx.fillRect(0, 0, width, height);
+
+    if (colony.showPheromones) colony.grid.draw(ctx);
+
+    for (const food of colony.food) food.draw(ctx);
+
+    drawNest();
+    drawAnts();
+    drawMarkers();
+  }
+
+  function drawNest() {
+    const { x, y, radius } = colony.nest;
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, radius * 2.4);
+    glow.addColorStop(0, "rgba(255, 166, 71, 0.5)");
+    glow.addColorStop(0.45, "rgba(255, 120, 40, 0.18)");
+    glow.addColorStop(1, "rgba(255, 120, 40, 0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 2.4, 0, TAU);
+    ctx.fill();
+
+    ctx.fillStyle = "#3b2415";
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, TAU);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(255, 186, 110, 0.55)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, TAU);
+    ctx.stroke();
+  }
+
+  function drawAnts() {
+    ctx.beginPath();
+    for (const ant of colony.ants) {
+      if (!ant.carrying) ant.appendShape(ctx);
+    }
+    ctx.fillStyle = "#d9b98a";
+    ctx.fill();
+
+    ctx.beginPath();
+    for (const ant of colony.ants) {
+      if (ant.carrying) ant.appendShape(ctx);
+    }
+    ctx.fillStyle = "#ffd25c";
+    ctx.fill();
+  }
+
+  function updateMarkers(dt) {
+    for (const m of clickMarkers) m.age += dt;
+    if (clickMarkers.length) clickMarkers = clickMarkers.filter((m) => m.age < 0.6);
+  }
+
+  function drawMarkers() {
+    for (const m of clickMarkers) {
+      const t = m.age / 0.6;
+      ctx.strokeStyle = `rgba(255, 210, 120, ${(1 - t).toFixed(2)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, 10 + t * 26, 0, TAU);
+      ctx.stroke();
+    }
+  }
+
+  // ---------- HUD ----------
+
+  function updateHud() {
+    els.population.textContent = colony.ants.length;
+    els.stored.textContent = Math.floor(colony.storedFood);
+    els.collected.textContent = Math.floor(colony.foodCollectedTotal);
+    els.foodSources.textContent = colony.food.length;
+    els.time.textContent = formatTime(colony.elapsed);
+  }
+
+  function formatTime(seconds) {
+    const total = Math.floor(seconds);
+    const mm = String(Math.floor(total / 60)).padStart(2, "0");
+    const ss = String(total % 60).padStart(2, "0");
+    return `${mm}:${ss}`;
+  }
+
+  function renderEventLog() {
+    els.eventLog.innerHTML = "";
+    for (const evt of colony.events) {
+      const li = document.createElement("li");
+      const time = document.createElement("span");
+      time.className = "log-time";
+      time.textContent = formatTime(evt.time);
+      const msg = document.createElement("span");
+      msg.className = "log-msg";
+      msg.textContent = evt.message;
+      li.appendChild(time);
+      li.appendChild(msg);
+      els.eventLog.appendChild(li);
+    }
+  }
+
+  // ---------- Controls ----------
+
+  function bindControls() {
+    canvas.addEventListener("pointerdown", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const amount = randInt(CONFIG.world.minFoodAmount, CONFIG.world.maxFoodAmount);
+      colony.addFoodAt(x, y, amount);
+      clickMarkers.push({ x, y, age: 0 });
+    });
+
+    els.btnPause.addEventListener("click", togglePause);
+
+    els.speedButtons.forEach((btn) => {
+      btn.addEventListener("click", () => setSpeed(parseFloat(btn.dataset.speed)));
+    });
+
+    els.btnAddAnt.addEventListener("click", () => colony.spawnAnt());
+    els.btnAddFood.addEventListener("click", () => colony.spawnRandomFood());
+    els.btnTogglePher.addEventListener("click", togglePheromones);
+    els.btnReset.addEventListener("click", triggerReset);
+
+    window.addEventListener("keydown", (e) => {
+      switch (e.key) {
+        case " ":
+          e.preventDefault();
+          togglePause();
+          break;
+        case "1":
+          setSpeed(0.5);
+          break;
+        case "2":
+          setSpeed(1);
+          break;
+        case "3":
+          setSpeed(2);
+          break;
+        case "4":
+          setSpeed(4);
+          break;
+        case "a":
+        case "A":
+          colony.spawnAnt();
+          break;
+        case "f":
+        case "F":
+          colony.spawnRandomFood();
+          break;
+        case "p":
+        case "P":
+          togglePheromones();
+          break;
+        case "r":
+        case "R":
+          triggerReset();
+          break;
+      }
+    });
+  }
+
+  function togglePause() {
+    paused = !paused;
+    els.btnPause.textContent = paused ? "Resume" : "Pause";
+    els.btnPause.classList.toggle("active", paused);
+  }
+
+  function setSpeed(value) {
+    speedMultiplier = value;
+    els.speedButtons.forEach((btn) => {
+      btn.classList.toggle("active", parseFloat(btn.dataset.speed) === value);
+    });
+  }
+
+  function togglePheromones() {
+    colony.showPheromones = !colony.showPheromones;
+    els.btnTogglePher.textContent = `Pheromones: ${colony.showPheromones ? "On" : "Off"}`;
+    els.btnTogglePher.setAttribute("aria-pressed", String(colony.showPheromones));
+  }
+
+  let resetArmed = false;
+  let resetArmTimeout = null;
+
+  function triggerReset() {
+    if (!resetArmed) {
+      resetArmed = true;
+      els.btnReset.textContent = "Confirm Reset?";
+      els.btnReset.classList.add("confirm");
+      resetArmTimeout = setTimeout(disarmReset, 3000);
+      return;
+    }
+    clearTimeout(resetArmTimeout);
+    disarmReset();
+    colony.reset();
+    lastLoggedEvent = null;
+    renderEventLog();
+    updateHud();
+    if (paused) togglePause();
+    setSpeed(1);
+  }
+
+  function disarmReset() {
+    resetArmed = false;
+    els.btnReset.textContent = "Reset Colony";
+    els.btnReset.classList.remove("confirm");
+  }
+
+  init();
+})();
+
+</script>
+</body>
+</html>

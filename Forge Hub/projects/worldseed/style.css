@@ -1,0 +1,162 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #10151c;
+  color: #e8e8e8;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+#topPanel {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 8px 16px;
+  background: #1b232f;
+  border-bottom: 2px solid #2c3a4d;
+  flex-wrap: wrap;
+}
+
+#topPanel h1 {
+  font-size: 16px;
+  letter-spacing: 2px;
+  margin: 0;
+  color: #7fd8ff;
+  white-space: nowrap;
+}
+
+.stats {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #10151c;
+  border: 1px solid #2c3a4d;
+  border-radius: 6px;
+  padding: 4px 10px;
+  min-width: 52px;
+}
+
+.stat .label {
+  font-size: 10px;
+  color: #8aa0b8;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.stat span:last-child {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.simControls {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.simControls button {
+  background: #223047;
+  color: #e8e8e8;
+  border: 1px solid #34455e;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.simControls button:hover {
+  background: #2c3d59;
+}
+
+.speedBtn.active {
+  background: #3d7fd6;
+  border-color: #5a9bef;
+}
+
+#btnReset {
+  background: #5c2323;
+  border-color: #7a3030;
+}
+#btnReset:hover {
+  background: #732c2c;
+}
+
+#gameArea {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #060a0f;
+  position: relative;
+}
+
+#worldCanvas {
+  background: #2f5d3a;
+  border: 2px solid #34455e;
+  border-radius: 4px;
+  cursor: crosshair;
+  image-rendering: pixelated;
+}
+
+#toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #1b232f;
+  border-top: 2px solid #2c3a4d;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.tool {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: #223047;
+  border: 1px solid #34455e;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  color: #e8e8e8;
+  min-width: 76px;
+}
+
+.tool:hover {
+  background: #2c3d59;
+}
+
+.tool .icon {
+  font-size: 20px;
+}
+
+.tool .toolLabel {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.tool.active {
+  background: #3d7fd6;
+  border-color: #7fd8ff;
+  box-shadow: 0 0 8px rgba(127, 216, 255, 0.6);
+}
+
+#btnCancelTool {
+  background: #3a2f47;
+}

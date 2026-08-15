@@ -1,0 +1,389 @@
+/* ============================================
+   FORGE HUB — Design Tokens
+   ============================================ */
+:root {
+  --color-bg: #0a0b0d;
+  --color-bg-alt: #101216;
+  --color-surface: #14161b;
+  --color-surface-hover: #1a1d24;
+  --color-border: #23262e;
+  --color-border-hover: #34394a;
+
+  --color-text: #e8e9ec;
+  --color-text-dim: #9096a3;
+  --color-text-faint: #5b6070;
+
+  --color-accent: #4fd1c5;
+  --color-accent-bright: #7ce7dc;
+  --color-accent-dim: rgba(79, 209, 197, 0.15);
+
+  --color-status-complete: #4fd1c5;
+  --color-status-progress: #e0b04f;
+  --color-status-prototype: #7a8299;
+
+  --font-display: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+  --font-body: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "Consolas", "SFMono-Regular", Menlo, monospace;
+
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  --space-1: 0.5rem;
+  --space-2: 1rem;
+  --space-3: 1.5rem;
+  --space-4: 2.5rem;
+  --space-5: 4rem;
+
+  --transition-fast: 150ms ease;
+  --transition-med: 300ms ease;
+
+  --max-width: 1200px;
+}
+
+/* ============================================
+   Reset
+   ============================================ */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  line-height: 1.5;
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+/* ============================================
+   Background grid atmosphere
+   ============================================ */
+.grid-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 75%);
+          mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 75%);
+}
+
+/* ============================================
+   Header
+   ============================================ */
+.site-header {
+  position: relative;
+  z-index: 1;
+  padding: var(--space-5) var(--space-2) var(--space-4);
+  text-align: center;
+}
+
+.header-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.brand {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--color-text);
+  text-shadow: 0 0 24px var(--color-accent-dim), 0 0 60px rgba(79, 209, 197, 0.08);
+}
+
+.subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-dim);
+  font-size: clamp(0.85rem, 1.5vw, 1.05rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ============================================
+   Main / Filters
+   ============================================ */
+.site-main {
+  position: relative;
+  z-index: 1;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--space-2) var(--space-5);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  justify-content: center;
+  margin-bottom: var(--space-4);
+}
+
+.filter-btn {
+  background: var(--color-surface);
+  color: var(--color-text-dim);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.filter-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-border-hover);
+}
+
+.filter-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.filter-btn.is-active {
+  color: var(--color-bg);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 18px var(--color-accent-dim);
+}
+
+/* ============================================
+   Project grid + cards
+   ============================================ */
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-3);
+}
+
+.project-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--transition-med), border-color var(--transition-med), box-shadow var(--transition-med), background var(--transition-med);
+}
+
+.project-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--color-border-hover);
+  background: var(--color-surface-hover);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--color-border-hover);
+}
+
+.card-thumb {
+  aspect-ratio: 16 / 9;
+  background: var(--color-bg-alt);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-thumb-fallback {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: var(--color-text-faint);
+  text-transform: uppercase;
+}
+
+.card-body {
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+}
+
+.card-top-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+
+.card-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.card-category {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  background: var(--color-accent-dim);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  white-space: nowrap;
+}
+
+.card-description {
+  margin: 0;
+  color: var(--color-text-dim);
+  font-size: 0.9rem;
+  flex: 1;
+}
+
+.card-bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.card-status {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-faint);
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.card-status[data-status="complete"] { color: var(--color-status-complete); }
+.card-status[data-status="in-progress"] { color: var(--color-status-progress); }
+.card-status[data-status="prototype"] { color: var(--color-status-prototype); }
+
+.launch-btn {
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border-hover);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 1.1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.launch-btn:hover {
+  background: var(--color-accent);
+  color: var(--color-bg);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 20px var(--color-accent-dim);
+}
+
+.launch-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.launch-btn[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--color-text-faint);
+  padding: var(--space-5) 0;
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+}
+
+/* ============================================
+   Footer
+   ============================================ */
+.site-footer {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: var(--space-4) var(--space-2) var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.footer-title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: var(--color-text-faint);
+}
+
+.footer-tagline {
+  margin: 0.35rem 0 0;
+  color: var(--color-text-dim);
+  font-size: 0.85rem;
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 600px) {
+  .project-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .site-header {
+    padding: var(--space-4) var(--space-2) var(--space-3);
+  }
+
+  .filters {
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: var(--space-1);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .filter-btn {
+    flex-shrink: 0;
+  }
+}
