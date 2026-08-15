@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Gravity Sandbox</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<canvas id="sim-canvas"></canvas>
+
+<div class="hud">
+
+  <header class="topbar">
+    <div class="brand"><span class="brand-dot"></span>GRAVITY SANDBOX</div>
+    <div class="topbar-actions">
+      <button id="btn-toggle-hud" class="icon-btn" title="Toggle panels">☰</button>
+    </div>
+  </header>
+
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat"><span>Bodies</span><b id="stat-bodies">0</b></div>
+    <div class="stat"><span>Sim Time</span><b id="stat-time">0.0s</b></div>
+    <div class="stat"><span>Speed</span><b id="stat-speed">1x</b></div>
+    <div class="stat"><span>FPS</span><b id="stat-fps">60</b></div>
+  </div>
+
+  <div class="panels" id="panels">
+
+    <section class="panel panel-spawn">
+      <h2>Spawn</h2>
+      <div class="type-grid" id="type-grid">
+        <button class="type-btn active" data-type="planet"><span class="swatch swatch-planet"></span>Planet</button>
+        <button class="type-btn" data-type="moon"><span class="swatch swatch-moon"></span>Moon</button>
+        <button class="type-btn" data-type="star"><span class="swatch swatch-star"></span>Star</button>
+        <button class="type-btn" data-type="blackhole"><span class="swatch swatch-blackhole"></span>Black Hole</button>
+      </div>
+      <label class="field">
+        <span class="field-label">Mass <b id="spawn-mass-value">50</b></span>
+        <input type="range" id="spawn-mass" min="1" max="500" step="1" value="50">
+      </label>
+      <p class="hint">Click empty space to place &middot; drag to launch</p>
+    </section>
+
+    <section class="panel panel-sim">
+      <h2>Simulation</h2>
+      <div class="btn-row">
+        <button id="btn-play" class="primary-btn">Pause</button>
+        <button id="btn-reset">Reset</button>
+        <button id="btn-clear">Clear All</button>
+      </div>
+      <div class="field">
+        <span class="field-label">Speed</span>
+        <div class="speed-group" id="speed-group">
+          <button data-speed="0.25">0.25x</button>
+          <button data-speed="0.5">0.5x</button>
+          <button data-speed="1" class="active">1x</button>
+          <button data-speed="2">2x</button>
+          <button data-speed="4">4x</button>
+          <button data-speed="8">8x</button>
+        </div>
+      </div>
+      <button id="btn-camera-reset" class="full-btn">Reset Camera</button>
+    </section>
+
+    <section class="panel panel-display">
+      <h2>Display</h2>
+      <div class="toggle-row">
+        <button class="toggle-btn active" data-toggle="trails">Trails</button>
+        <button class="toggle-btn active" data-toggle="labels">Labels</button>
+        <button class="toggle-btn" data-toggle="vectors">Velocity</button>
+        <button class="toggle-btn" data-toggle="com">Center of Mass</button>
+      </div>
+    </section>
+
+    <section class="panel panel-presets">
+      <h2>Presets</h2>
+      <div class="btn-col">
+        <button data-preset="earth-moon">Earth + Moon</button>
+        <button data-preset="solar-system">Solar System</button>
+        <button data-preset="binary-stars">Binary Stars</button>
+        <button data-preset="three-body">Three-Body Chaos</button>
+        <button data-preset="empty">Empty Space</button>
+      </div>
+    </section>
+
+  </div>
+
+  <aside class="panel panel-inspector" id="inspector" hidden>
+    <div class="inspector-header">
+      <h2>Inspector</h2>
+      <button id="btn-close-inspector" class="icon-btn" title="Close">✕</button>
+    </div>
+    <label class="field">
+      <span class="field-label">Name</span>
+      <input type="text" id="insp-name" maxlength="24">
+    </label>
+    <div class="field-static"><span>Type</span><b id="insp-type">—</b></div>
+    <label class="field">
+      <span class="field-label">Mass <b id="insp-mass-value">0</b></span>
+      <input type="range" id="insp-mass" min="1" max="20000" step="1">
+    </label>
+    <div class="field-static"><span>Velocity</span><b id="insp-velocity">0, 0</b></div>
+    <div class="field-static"><span>Speed</span><b id="insp-speed">0</b></div>
+    <div class="field-static"><span>Position</span><b id="insp-position">0, 0</b></div>
+    <button id="btn-delete" class="danger-btn full-btn">Delete Body</button>
+  </aside>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

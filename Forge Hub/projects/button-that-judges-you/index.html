@@ -392,14 +392,14 @@
         </button>
       </div>
 
-      <div class="readout">Presses logged: <b id="count-num">0</b></div>
+      <div class="readout"><span id="count-label">Visitors who touched the exhibit</span>: <b id="count-num">0</b></div>
     </div>
   </div>
 
   <div class="placard">
-    <div class="title">Exhibit No. 07 — “The Button That Judges You”</div>
-    <div class="medium">Mixed media. Sarcasm, glass, one input device.</div>
-    <div class="desc">On loan from an anonymous collector who kept pressing it during installation. Visitors are cautioned that the object develops opinions.</div>
+    <div class="title" id="placard-title">Exhibit No. 07 — “The Button That Judges You”</div>
+    <div class="medium" id="placard-medium">Mixed media. Sarcasm, glass, one input device.</div>
+    <div class="desc" id="placard-desc">On loan from an anonymous collector who kept pressing it during installation. Visitors are cautioned that the object develops opinions.</div>
     <div class="stage-line" id="stage-tag">Stage 1 — Mild Curiosity</div>
   </div>
 </div>
@@ -407,6 +407,7 @@
 <button class="decoy" id="decoy">Definitely Not The Button</button>
 <div class="toast" id="toast">notice</div>
 <div class="flash-overlay" id="flash-overlay">WHY</div>
+<div class="flash-overlay" id="closing-overlay" style="color:var(--gold); font-size:clamp(24px,7vw,44px); letter-spacing:0.08em; text-transform:uppercase;">Gallery Closed</div>
 <div class="loading-overlay" id="loading-overlay">
   <div>Escalating matter&hellip;</div>
   <div class="loading-bar"><span></span></div>
@@ -434,8 +435,13 @@
   var decoy = document.getElementById('decoy');
   var toast = document.getElementById('toast');
   var flashOverlay = document.getElementById('flash-overlay');
+  var closingOverlay = document.getElementById('closing-overlay');
   var loadingOverlay = document.getElementById('loading-overlay');
   var auditLog = document.getElementById('audit-log');
+  var countLabel = document.getElementById('count-label');
+  var placardTitle = document.getElementById('placard-title');
+  var placardMedium = document.getElementById('placard-medium');
+  var placardDesc = document.getElementById('placard-desc');
 
   var STAGES = [
     { max: 5,   name: "Stage 1 — Mild Curiosity",  glow: "rgba(143,184,255,0.35)" },
@@ -443,6 +449,34 @@
     { max: 30,  name: "Stage 3 — Investigation",    glow: "rgba(255,176,32,0.4)" },
     { max: 50,  name: "Stage 4 — Containment",      glow: "rgba(255,77,77,0.45)" },
     { max: Infinity, name: "Stage 5 — Full Nonsense", glow: "rgba(255,77,77,0.55)" }
+  ];
+
+  var PLACARD_STAGES = [
+    {
+      title: "Exhibit No. 07 — “The Button That Judges You”",
+      medium: "Mixed media. Sarcasm, glass, one input device.",
+      desc: "On loan from an anonymous collector who kept pressing it during installation. Visitors are cautioned that the object develops opinions."
+    },
+    {
+      title: "Exhibit No. 07 — “The Button That Judges You”",
+      medium: "Mixed media. Sarcasm, glass, growing concern.",
+      desc: "Curators note the object has begun responding differently to repeat visitors. This was not part of the original design."
+    },
+    {
+      title: "Exhibit No. 07 — “The Button, Under Observation”",
+      medium: "Mixed media. Sarcasm, glass, one open file.",
+      desc: "On loan pending review. The lending collector has stopped returning the museum's calls."
+    },
+    {
+      title: "Exhibit No. 07 — “The Button, Contained”",
+      medium: "Mixed media. Sarcasm, glass, incident report.",
+      desc: "On loan pending a restraining order. Please do not make prolonged eye contact with the exhibit."
+    },
+    {
+      title: "Exhibit No. 07 — “The Button, Regrettably Still Here”",
+      medium: "Mixed media. Sarcasm, glass, whatever this has become.",
+      desc: "Est. three minutes ago, subjectively. The museum accepts no responsibility for what happens next."
+    }
   ];
 
   var MESSAGES = {
@@ -555,6 +589,13 @@
     var s = STAGES[stageIdx];
     document.documentElement.style.setProperty('--glow', s.glow);
     stageTag.textContent = s.name;
+
+    var p = PLACARD_STAGES[stageIdx];
+    if (placardTitle.textContent !== p.title) placardTitle.textContent = p.title;
+    if (placardMedium.textContent !== p.medium) placardMedium.textContent = p.medium;
+    if (placardDesc.textContent !== p.desc) placardDesc.textContent = p.desc;
+
+    countLabel.textContent = stageIdx >= 3 ? "Visitors processed" : "Visitors who touched the exhibit";
   }
 
   function showToast(text, kind, duration){
@@ -677,6 +718,23 @@
     var levels = ["Beige", "Mildly Alarming", "Undefined", "Yes", "Tuesday", "Confidential"];
     showToast("Threat level: " + levels[Math.floor(Math.random()*levels.length)], "warn", 2400);
   }
+  function intercomToast(){
+    var lines = [
+      "Gallery attendant has been notified.",
+      "Visitor 07 remains at the exhibit.",
+      "Please do not touch other exhibits while agitated.",
+      "The gift shop does not sell this button.",
+      "Security has been asked to observe, not intervene."
+    ];
+    showToast(lines[Math.floor(Math.random()*lines.length)], null, 2400);
+  }
+  function closingTimeGag(){
+    closingOverlay.classList.add('show');
+    setTimeout(function(){
+      closingOverlay.classList.remove('show');
+      showToast("Gallery hours resumed. You never left.", "warn", 2400);
+    }, 900);
+  }
   function revealDecoy(){
     if (decoyRevealed) return;
     decoyRevealed = true;
@@ -697,10 +755,12 @@
     if (stageIdx >= 1) {
       pool.push(function(){ supervisorToast(); });
       pool.push(function(){ threatLevelToast(); });
+      pool.push(function(){ intercomToast(); });
     }
     if (stageIdx >= 2) {
       pool.push(function(){ containerDistort(); screenFlicker(); });
       pool.push(function(){ moveButtonRandomly(); });
+      pool.push(function(){ intercomToast(); });
     }
     if (stageIdx >= 3) {
       pool.push(function(){ doNotPressMoment(); screenFlicker(); });
@@ -711,6 +771,7 @@
       pool.push(function(){ achievementToast(); });
       pool.push(function(){ revealDecoy(); });
       pool.push(function(){ runLoadingScreen(function(){ showToast("Escalation complete. Nothing changed.", "warn"); }); });
+      pool.push(function(){ closingTimeGag(); });
     }
 
     var fn = pool[Math.floor(Math.random()*pool.length)];

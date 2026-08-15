@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Mycelium — a growth sim</title>
+<style>
+  :root{
+    --soil-0:#0b0906;
+    --soil-1:#141009;
+    --soil-2:#1e1710;
+    --panel:rgba(20,16,10,0.72);
+    --panel-border:rgba(255,231,180,0.10);
+    --ink:#e8dfce;
+    --ink-dim:#a99d84;
+    --amber:#ffce7a;
+    --amber-dim:#8a6f3f;
+    --font-display:'Iowan Old Style','Palatino Linotype',Georgia,serif;
+    --font-mono:'SF Mono','JetBrains Mono',Consolas,'Courier New',monospace;
+    --font-ui:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    background:var(--soil-0); overflow:hidden;
+    touch-action:none; user-select:none; -webkit-user-select:none;
+    font-family:var(--font-ui);
+  }
+  #stage{ position:fixed; inset:0; }
+  #canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; cursor:crosshair; }
+
+  #hint{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    color:var(--ink-dim); font-family:var(--font-display); font-style:italic;
+    font-size:17px; letter-spacing:0.02em; text-align:center; pointer-events:none;
+    opacity:1; transition:opacity 1.1s ease; text-shadow:0 2px 12px rgba(0,0,0,0.8);
+    max-width:80vw;
+  }
+  #hint.hidden{ opacity:0; }
+
+  .panel{
+    background:var(--panel); border:1px solid var(--panel-border);
+    border-radius:10px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    box-shadow:0 4px 24px rgba(0,0,0,0.35);
+  }
+
+  #hud-top{
+    position:absolute; top:12px; left:12px; right:12px;
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap:10px; pointer-events:none;
+  }
+  #title-block{ padding:9px 16px; pointer-events:auto; }
+  #title-block h1{
+    margin:0; font-family:var(--font-display); font-size:19px; font-weight:600;
+    color:var(--ink); letter-spacing:0.03em;
+  }
+  #title-block .sub{
+    margin-top:1px; font-family:var(--font-mono); font-size:10px; color:var(--ink-dim);
+    letter-spacing:0.08em; text-transform:uppercase;
+  }
+  #stats{
+    padding:9px 16px; pointer-events:auto; font-family:var(--font-mono); font-size:11px;
+    color:var(--ink-dim); display:flex; gap:16px; white-space:nowrap;
+  }
+  #stats .stat b{ color:var(--amber); font-weight:600; }
+  #stats .stat span.lbl{ display:block; font-size:9px; letter-spacing:0.06em; text-transform:uppercase; opacity:0.75; margin-top:1px;}
+
+  #legend{
+    position:absolute; top:64px; left:12px; display:flex; flex-direction:column; gap:4px;
+    pointer-events:none;
+  }
+  .legend-chip{
+    display:flex; align-items:center; gap:6px; padding:3px 9px 3px 6px;
+    border-radius:20px; background:rgba(20,16,10,0.6); border:1px solid var(--panel-border);
+    font-family:var(--font-mono); font-size:10px; color:var(--ink-dim);
+    transition:opacity 0.4s ease;
+  }
+  .legend-chip .dot{ width:8px; height:8px; border-radius:50%; flex:none; }
+  .legend-chip.dormant{ opacity:0.42; }
+
+  #eventlog{
+    position:absolute; bottom:74px; left:12px; right:12px;
+    display:flex; flex-direction:column-reverse; gap:3px; pointer-events:none;
+    max-height:96px; overflow:hidden;
+  }
+  .evt{
+    font-family:var(--font-mono); font-size:11px; color:var(--ink-dim);
+    text-shadow:0 1px 6px rgba(0,0,0,0.9); opacity:0.9;
+    animation:evtIn 0.4s ease;
+  }
+  @keyframes evtIn{ from{opacity:0; transform:translateY(4px);} to{opacity:0.9; transform:translateY(0);} }
+
+  #controls{
+    position:absolute; bottom:12px; left:12px; right:12px;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    pointer-events:none;
+  }
+  .btn-group{ display:flex; gap:6px; pointer-events:auto; padding:6px; }
+  button{
+    font-family:var(--font-ui); font-size:12px; font-weight:600; letter-spacing:0.02em;
+    color:var(--ink-dim); background:transparent; border:1px solid transparent;
+    border-radius:7px; padding:9px 13px; min-height:40px; cursor:pointer;
+    transition:all 0.15s ease; -webkit-appearance:none;
+  }
+  button:active{ transform:scale(0.95); }
+  button.active{ color:var(--soil-0); background:var(--amber); }
+  button.ghost{ color:var(--ink-dim); }
+  button.ghost:hover{ color:var(--ink); }
+  button.reset-btn{ color:#e88a6a; }
+  button.reset-btn.armed{ background:#e85a3f; color:#1a0d08; }
+
+  @media (max-width:520px){
+    #stats{ display:none; }
+    #title-block h1{ font-size:16px; }
+    #legend{ top:58px; }
+    .btn-group{ padding:4px; }
+    button{ padding:8px 10px; font-size:11px; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="canvas"></canvas>
+  <div id="hint">tap the loam to plant a spore</div>
+
+  <div id="hud-top">
+    <div id="title-block" class="panel">
+      <h1>Mycelium</h1>
+      <div class="sub">a growth sim</div>
+    </div>
+    <div id="stats" class="panel">
+      <div class="stat"><b id="statColonies">0/6</b><span class="lbl">colonies</span></div>
+      <div class="stat"><b id="statBiomass">0</b><span class="lbl">biomass</span></div>
+      <div class="stat"><b id="statNutrient">0</b><span class="lbl">nutrient</span></div>
+    </div>
+  </div>
+
+  <div id="legend"></div>
+  <div id="eventlog"></div>
+
+  <div id="controls">
+    <div class="btn-group panel">
+      <button id="modePlant" class="active">◆ Plant</button>
+      <button id="modeFeed">✦ Feed</button>
+    </div>
+    <div class="btn-group panel">
+      <button id="btnPause" class="ghost">Pause</button>
+      <button id="btnSpeed1" class="active">1×</button>
+      <button id="btnSpeed2" class="ghost">2×</button>
+      <button id="btnReset" class="reset-btn">Reset</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- config ----------
+  const CELL = 4;
+  const MAX_COLONIES = 6;
+  const MAX_TIPS = 45;
+  const TIP_SPEED = 0.62;
+  const SENSE_RADIUS = 72;
+  const NUTRIENT_CONSUME_R = 11;
+  const BASE_ENERGY = 130;
+  const GROW_COST = 0.045;
+  const BRANCH_COST = 16;
+  const NUTRIENT_ENERGY = 46;
+  const BRANCH_CHANCE = 0.0065;
+  const NUTRIENT_REGEN_MIN = 4500;
+  const NUTRIENT_REGEN_MAX = 9500;
+  const OBSTACLE_COUNT_RANGE = [3,5];
+  const CLUSTER_COUNT_RANGE = [3,5];
+  const NUTRIENTS_PER_CLUSTER = 5;
+  const NUTRIENT_FEED_CAP_EXTRA = 10;
+
+  const PALETTE = [
+    {name:'A', color:'#4EE8C4'},
+    {name:'B', color:'#FF5FA8'},
+    {name:'C', color:'#FFC145'},
+    {name:'D', color:'#9CE84E'},
+    {name:'E', color:'#A97BFF'},
+    {name:'F', color:'#FF7F50'},
+  ];
+
+  // ---------- dom ----------
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const hint = document.getElementById('hint');
+  const legendEl = document.getElementById('legend');
+  const eventlogEl = document.getElementById('eventlog');
+  const statColonies = document.getElementById('statColonies');
+  const statBiomass = document.getElementById('statBiomass');
+  const statNutrient = document.getElementById('statNutrient');
+
+  let history = document.createElement('canvas');
+  let hctx = history.getContext('2d');
+
+  let W = 0, H = 0, DPR = 1;
+  let gridW = 0, gridH = 0;
+  let grid = null;
+
+  // ---------- state ----------
+  let colonies = [];
+  let nutrients = [];
+  let obstacles = [];
+  let nutrientBaseCount = 0;
+  let nextColonyId = 1;
+  let mode = 'plant';
+  let paused = false;
+  let speedSteps = 1;
+  let firstTapDone = false;
+  let now = 0;
+
+  // ---------- utils ----------
+  function rand(a,b){ return a + Math.random()*(b-a); }
+  function dist(x1,y1,x2,y2){ const dx=x2-x1, dy=y2-y1; return Math.sqrt(dx*dx+dy*dy); }
+  function clamp(v,lo,hi){ return v<lo?lo:(v>hi?hi:v); }
+  function normAngle(a){ while(a>Math.PI) a-=Math.PI*2; while(a<-Math.PI) a+=Math.PI*2; return a; }
+  function letterFor(id){ return PALETTE[(id-1)%PALETTE.length].name; }
+
+  // ---------- occupancy grid ----------
+  function idxAt(x,y){
+    const gx = Math.floor(x/CELL), gy = Math.floor(y/CELL);
+    if (gx<0||gy<0||gx>=gridW||gy>=gridH) return -1;
+    return gy*gridW+gx;
+  }
+  function getOcc(x,y){ const i=idxAt(x,y); return i<0?255:grid[i]; }
+  function setOcc(x,y,v){ const i=idxAt(x,y); if(i>=0) grid[i]=v; }
+
+  // ---------- sizing ----------
+  function resize(){
+    const rect = document.getElementById('stage').getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    DPR = Math.min(window.devicePixelRatio||1, 2.5);
+
+    canvas.width = Math.round(W*DPR); canvas.height = Math.round(H*DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+
+    history.width = Math.round(W*DPR); history.height = Math.round(H*DPR);
+    hctx.setTransform(DPR,0,0,DPR,0,0);
+
+    gridW = Math.ceil(W/CELL); gridH = Math.ceil(H/CELL);
+    grid = new Uint8Array(gridW*gridH);
+
+    redrawHistory();
+  }
+
+  function redrawHistory(){
+    // soil texture
+    hctx.clearRect(0,0,W,H);
+    const g = hctx.createRadialGradient(W*0.5,H*0.4,0,W*0.5,H*0.5,Math.max(W,H)*0.75);
+    g.addColorStop(0,'#171009');
+    g.addColorStop(1,'#0a0704');
+    hctx.fillStyle = g;
+    hctx.fillRect(0,0,W,H);
+    hctx.save();
+    hctx.globalAlpha = 0.05;
+    for(let i=0;i<420;i++){
+      hctx.fillStyle = Math.random()<0.5 ? '#ffe7b4' : '#000000';
+      const sx = Math.random()*W, sy = Math.random()*H, sr = rand(0.4,1.3);
+      hctx.beginPath(); hctx.arc(sx,sy,sr,0,Math.PI*2); hctx.fill();
+    }
+    hctx.restore();
+
+    // rebuild grid occupancy for obstacles (grid was reset by resize)
+    for (const o of obstacles) markObstacle(o, true);
+
+    // obstacles
+    for (const o of obstacles) drawObstacle(hctx, o);
+
+    // colony origin glows + committed segments
+    for (const c of colonies){
+      for (const seg of c.segments) strokeSeg(hctx, seg.x1,seg.y1,seg.x2,seg.y2,c.color, seg.w);
+      if (c.originDrawn) drawOrigin(hctx, c.originX, c.originY, c.color);
+    }
+  }
+
+  function markObstacle(o, draw){
+    const steps = Math.ceil((o.r*2)/CELL)+2;
+    for(let i=-steps;i<=steps;i++){
+      for(let j=-steps;j<=steps;j++){
+        const x=o.x+i*CELL, y=o.y+j*CELL;
+        if (dist(x,y,o.x,o.y) <= o.r) setOcc(x,y,255);
+      }
+    }
+  }
+
+  function drawObstacle(c, o){
+    c.save();
+    c.translate(o.x,o.y);
+    c.rotate(o.rot);
+    c.fillStyle = '#2a231a';
+    c.beginPath();
+    for(let i=0;i<o.pts.length;i++){
+      const p = o.pts[i];
+      if (i===0) c.moveTo(p.x,p.y); else c.lineTo(p.x,p.y);
+    }
+    c.closePath(); c.fill();
+    c.fillStyle = 'rgba(0,0,0,0.25)';
+    c.beginPath(); c.ellipse(0,o.r*0.35,o.r*0.7,o.r*0.22,0,0,Math.PI*2); c.fill();
+    c.restore();
+  }
+
+  function strokeSeg(c,x1,y1,x2,y2,color,w){
+    c.save();
+    c.strokeStyle = color;
+    c.lineWidth = w;
+    c.lineCap = 'round';
+    c.shadowColor = color;
+    c.shadowBlur = 3.2;
+    c.globalAlpha = 0.92;
+    c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke();
+    c.restore();
+  }
+
+  function drawOrigin(c,x,y,color){
+    c.save();
+    c.fillStyle = color;
+    c.shadowColor = color;
+    c.shadowBlur = 10;
+    c.globalAlpha = 0.85;
+    c.beginPath(); c.arc(x,y,3.4,0,Math.PI*2); c.fill();
+    c.restore();
+  }
+
+  // ---------- world setup ----------
+  function makeObstacles(){
+    obstacles = [];
+    const n = Math.round(rand(OBSTACLE_COUNT_RANGE[0], OBSTACLE_COUNT_RANGE[1]+0.99));
+    for(let i=0;i<n;i++){
+      const x = rand(W*0.12,W*0.88), y = rand(H*0.18,H*0.85);
+      const r = rand(18,34);
+      const pts = [];
+      const segs = 8;
+      for(let s=0;s<segs;s++){
+        const a = (s/segs)*Math.PI*2;
+        const rr = r*rand(0.72,1.08);
+        pts.push({x:Math.cos(a)*rr, y:Math.sin(a)*rr});
+      }
+      obstacles.push({x,y,r,rot:rand(0,Math.PI*2),pts});
+    }
+  }
+
+  function makeNutrients(){
+    nutrients = [];
+
+    // place cluster centers, spread apart so ground between patches stays open
+    const clusterCount = Math.round(rand(CLUSTER_COUNT_RANGE[0], CLUSTER_COUNT_RANGE[1]+0.99));
+    const minClusterDist = Math.min(W,H) * 0.34;
+    const centers = [];
+    let attempts = 0;
+    while (centers.length < clusterCount && attempts < clusterCount*50){
+      attempts++;
+      const cx = rand(W*0.14,W*0.86), cy = rand(H*0.16,H*0.88);
+      let ok = true;
+      for (const o of obstacles) if (dist(cx,cy,o.x,o.y) < o.r+42) { ok=false; break; }
+      for (const cc of centers) if (dist(cx,cy,cc.x,cc.y) < minClusterDist) { ok=false; break; }
+      if (ok) centers.push({x:cx,y:cy});
+    }
+    // relax spacing if the screen was too small/crowded to fit the target count
+    while (centers.length < 2){
+      centers.push({x:rand(W*0.22,W*0.78), y:rand(H*0.22,H*0.78)});
+    }
+
+    const clusterRadius = Math.min(W,H) * 0.09;
+    for (const cc of centers){
+      let placed = 0, tries = 0;
+      while (placed < NUTRIENTS_PER_CLUSTER && tries < NUTRIENTS_PER_CLUSTER*15){
+        tries++;
+        const a = rand(0,Math.PI*2);
+        const r = clusterRadius * Math.sqrt(Math.random());
+        const x = cc.x + Math.cos(a)*r;
+        const y = cc.y + Math.sin(a)*r;
+        if (x<W*0.04||x>W*0.96||y<H*0.06||y>H*0.94) continue;
+        let ok = true;
+        for (const o of obstacles) if (dist(x,y,o.x,o.y) < o.r+16) { ok=false; break; }
+        for (const nn of nutrients) if (dist(x,y,nn.x,nn.y) < 20) { ok=false; break; }
+        if (!ok) continue;
+        nutrients.push({x,y,active:true,cooldownUntil:0,bloom:1});
+        placed++;
+      }
+    }
+    nutrientBaseCount = nutrients.length;
+  }
+
+  // ---------- events ----------
+  function logEvent(msg){
+    const div = document.createElement('div');
+    div.className = 'evt';
+    div.textContent = msg;
+    eventlogEl.insertBefore(div, eventlogEl.firstChild);
+    while (eventlogEl.children.length > 4) eventlogEl.removeChild(eventlogEl.lastChild);
+    clearTimeout(div._t);
+    div._t = setTimeout(()=>{ div.style.transition='opacity 0.8s ease'; div.style.opacity='0'; setTimeout(()=>div.remove(),900); }, 6000);
+  }
+
+  let lastContactLog = {};
+  function maybeLogContact(idA, idB){
+    const key = idA<idB ? idA+'-'+idB : idB+'-'+idA;
+    const t = now;
+    if (lastContactLog[key] && t - lastContactLog[key] < 9000) return;
+    if (Math.random() > 0.10) return;
+    lastContactLog[key] = t;
+    logEvent(`Colony ${letterFor(idA)} presses against Colony ${letterFor(idB)}'s territory.`);
+  }
+
+  // ---------- legend ----------
+  function refreshLegend(){
+    legendEl.innerHTML = '';
+    for (const c of colonies){
+      const chip = document.createElement('div');
+      chip.className = 'legend-chip' + (c.alive ? '' : ' dormant');
+      chip.innerHTML = `<span class="dot" style="background:${c.color};box-shadow:0 0 6px ${c.color}"></span>${letterFor(c.id)} · ${c.alive ? 'growing' : 'dormant'}`;
+      legendEl.appendChild(chip);
+    }
+  }
+
+  // ---------- spawning ----------
+  function plantColony(x,y){
+    const aliveCount = colonies.filter(c=>c.alive).length;
+    if (colonies.length >= MAX_COLONIES){
+      logEvent('The loam is fully claimed — reset to start again.');
+      return;
+    }
+    for (const o of obstacles) if (dist(x,y,o.x,o.y) < o.r+8) { logEvent('Too close to stone — pick open ground.'); return; }
+
+    const id = nextColonyId++;
+    const pal = PALETTE[(id-1)%PALETTE.length];
+    const c = {
+      id, color: pal.color, energy: BASE_ENERGY, alive: true,
+      tips: [], segments: [], length: 0,
+      originX: x, originY: y, originDrawn: true
+    };
+    const tipCount = 3;
+    for(let i=0;i<tipCount;i++){
+      c.tips.push({ x, y, angle: (i/tipCount)*Math.PI*2 + rand(-0.3,0.3), alive:true, age:0 });
+    }
+    setOcc(x,y,id);
+    colonies.push(c);
+    drawOrigin(hctx, x, y, c.color);
+    logEvent(`Colony ${letterFor(id)} took root.`);
+    refreshLegend();
+  }
+
+  function addNutrient(x,y){
+    if (nutrients.length >= nutrientBaseCount + NUTRIENT_FEED_CAP_EXTRA){
+      logEvent('The substrate cannot hold more nutrient right now.');
+      return;
+    }
+    for (const o of obstacles) if (dist(x,y,o.x,o.y) < o.r+6) return;
+    nutrients.push({x,y,active:true,cooldownUntil:0,bloom:1});
+  }
+
+  // ---------- simulation ----------
+  function simulateTick(dt){
+    for (const c of colonies){
+      if (!c.alive) continue;
+      let aliveTips = 0;
+      const tips = c.tips;
+      for (let ti=0; ti<tips.length; ti++){
+        const tip = tips[ti];
+        if (!tip.alive) continue;
+        aliveTips++;
+        tip.age++;
+
+        // sense nearest active nutrient
+        let target = null, bestD = SENSE_RADIUS;
+        for (const nu of nutrients){
+          if (!nu.active) continue;
+          const d = dist(tip.x,tip.y,nu.x,nu.y);
+          if (d < bestD){ bestD = d; target = nu; }
+        }
+
+        let desired = tip.angle;
+        if (target) desired = Math.atan2(target.y-tip.y, target.x-tip.x);
+        const diff = normAngle(desired - tip.angle);
+        const steer = target ? clamp(diff, -0.16, 0.16) : rand(-0.13,0.13);
+        tip.angle = normAngle(tip.angle + steer);
+
+        let moved = false, blockedByColony = -1;
+        for (let attempt=0; attempt<5 && !moved; attempt++){
+          const testAngle = tip.angle + (attempt===0 ? 0 : (attempt%2===1?1:-1)*attempt*0.4);
+          const nx = tip.x + Math.cos(testAngle)*TIP_SPEED;
+          const ny = tip.y + Math.sin(testAngle)*TIP_SPEED;
+          if (nx<2||ny<2||nx>W-2||ny>H-2) continue;
+          const occ = getOcc(nx,ny);
+          if (occ === 0 || occ === c.id){
+            moved = true;
+            tip.angle = testAngle;
+            const w = 1.1 + Math.min(c.length,4000)/4000*0.6;
+            const seg = {x1:tip.x,y1:tip.y,x2:nx,y2:ny,w};
+            c.segments.push(seg);
+            strokeSeg(hctx, seg.x1,seg.y1,seg.x2,seg.y2,c.color,seg.w);
+            setOcc(nx,ny,c.id);
+            c.length++;
+            tip.x = nx; tip.y = ny;
+            c.energy -= GROW_COST;
+          } else if (occ !== 255){
+            blockedByColony = occ;
+          }
+        }
+
+        if (!moved){
+          tip.alive = false;
+          if (blockedByColony > 0) maybeLogContact(c.id, blockedByColony);
+          continue;
+        }
+
+        if (target && bestD < NUTRIENT_CONSUME_R){
+          target.active = false;
+          target.cooldownUntil = now + rand(NUTRIENT_REGEN_MIN, NUTRIENT_REGEN_MAX);
+          target.bloom = 1;
+          c.energy = Math.min(c.energy + NUTRIENT_ENERGY, BASE_ENERGY*2);
+        }
+
+        if (c.energy > BRANCH_COST && tips.length < MAX_TIPS && Math.random() < BRANCH_CHANCE){
+          c.energy -= BRANCH_COST;
+          tips.push({ x:tip.x, y:tip.y, angle: normAngle(tip.angle + (Math.random()<0.5?1:-1)*rand(0.45,1.15)), age:0, alive:true });
+        }
+      }
+
+      if (aliveTips === 0 && c.alive){
+        c.alive = false;
+        logEvent(`Colony ${letterFor(c.id)} has gone dormant.`);
+        refreshLegend();
+      }
+    }
+
+    // nutrient regen
+    for (const nu of nutrients){
+      if (!nu.active && now > nu.cooldownUntil){ nu.active = true; nu.bloom = 1; }
+      if (nu.bloom > 0) nu.bloom = Math.max(0, nu.bloom - dt*0.0022);
+    }
+  }
+
+  // ---------- render ----------
+  function drawNutrients(){
+    for (const nu of nutrients){
+      ctx.save();
+      if (nu.active){
+        const pulse = 0.75 + Math.sin(now*0.0028 + nu.x)*0.2;
+        ctx.fillStyle = '#ffe9b8';
+        ctx.shadowColor = '#ffe9b8';
+        ctx.shadowBlur = 8 + nu.bloom*10;
+        ctx.globalAlpha = 0.55*pulse + nu.bloom*0.4;
+        ctx.beginPath(); ctx.arc(nu.x,nu.y, 3.2 + nu.bloom*3, 0, Math.PI*2); ctx.fill();
+      } else {
+        const t = clamp(1 - (nu.cooldownUntil-now)/(NUTRIENT_REGEN_MAX), 0, 1);
+        ctx.fillStyle = '#3a3226';
+        ctx.globalAlpha = 0.5;
+        ctx.beginPath(); ctx.arc(nu.x,nu.y, 1.2 + t*1.4, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawTips(){
+    for (const c of colonies){
+      if (!c.alive) continue;
+      for (const tip of c.tips){
+        if (!tip.alive) continue;
+        ctx.save();
+        const pulse = 0.6 + Math.sin(now*0.006 + tip.x*0.1)*0.4;
+        ctx.fillStyle = c.color;
+        ctx.shadowColor = c.color;
+        ctx.shadowBlur = 9;
+        ctx.globalAlpha = 0.55 + pulse*0.35;
+        ctx.beginPath(); ctx.arc(tip.x,tip.y, 1.8, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
+  function updateHud(){
+    const aliveCount = colonies.filter(c=>c.alive).length;
+    statColonies.textContent = `${colonies.length}/${MAX_COLONIES}`;
+    const biomass = colonies.reduce((s,c)=>s+c.length,0);
+    statBiomass.textContent = biomass;
+    const nutrientActive = nutrients.filter(n=>n.active).length;
+    statNutrient.textContent = `${nutrientActive}/${nutrients.length}`;
+  }
+
+  let lastFrame = performance.now();
+  function loop(t){
+    const dt = Math.min(t - lastFrame, 50);
+    lastFrame = t;
+    now = t;
+
+    if (!paused){
+      const steps = speedSteps;
+      for (let i=0;i<steps;i++) simulateTick(dt);
+    }
+
+    ctx.clearRect(0,0,W,H);
+    ctx.drawImage(history, 0,0, W,H);
+    drawNutrients();
+    drawTips();
+    updateHud();
+
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- input ----------
+  function pointToCanvas(e){
+    const rect = canvas.getBoundingClientRect();
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+    return {x:cx, y:cy};
+  }
+
+  canvas.addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    const p = pointToCanvas(e);
+    if (!firstTapDone){ firstTapDone = true; hint.classList.add('hidden'); }
+    if (mode === 'plant') plantColony(p.x,p.y);
+    else addNutrient(p.x,p.y);
+  }, {passive:false});
+
+  canvas.addEventListener('touchstart', (e)=>{ e.preventDefault(); }, {passive:false});
+  canvas.addEventListener('contextmenu', (e)=>e.preventDefault());
+
+  // ---------- controls ----------
+  const modePlantBtn = document.getElementById('modePlant');
+  const modeFeedBtn = document.getElementById('modeFeed');
+  modePlantBtn.addEventListener('click', ()=>{ mode='plant'; modePlantBtn.classList.add('active'); modeFeedBtn.classList.remove('active'); });
+  modeFeedBtn.addEventListener('click', ()=>{ mode='feed'; modeFeedBtn.classList.add('active'); modePlantBtn.classList.remove('active'); });
+
+  const btnPause = document.getElementById('btnPause');
+  const btnSpeed1 = document.getElementById('btnSpeed1');
+  const btnSpeed2 = document.getElementById('btnSpeed2');
+  btnPause.addEventListener('click', ()=>{
+    paused = !paused;
+    btnPause.textContent = paused ? 'Resume' : 'Pause';
+    btnPause.classList.toggle('active', paused);
+  });
+  btnSpeed1.addEventListener('click', ()=>{ speedSteps=1; btnSpeed1.classList.add('active'); btnSpeed2.classList.remove('active'); });
+  btnSpeed2.addEventListener('click', ()=>{ speedSteps=2; btnSpeed2.classList.add('active'); btnSpeed1.classList.remove('active'); });
+
+  const btnReset = document.getElementById('btnReset');
+  let resetArmed = false, resetTimer = null;
+  function performReset(){
+    colonies = []; nextColonyId = 1; lastContactLog = {};
+    eventlogEl.innerHTML = '';
+    makeObstacles(); makeNutrients();
+    resize();
+    refreshLegend();
+    firstTapDone = false; hint.classList.remove('hidden');
+    logEvent('Fresh substrate laid down.');
+  }
+  btnReset.addEventListener('click', ()=>{
+    if (colonies.length === 0){ performReset(); return; }
+    if (!resetArmed){
+      resetArmed = true;
+      btnReset.textContent = 'Confirm?';
+      btnReset.classList.add('armed');
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(()=>{
+        resetArmed = false;
+        btnReset.textContent = 'Reset';
+        btnReset.classList.remove('armed');
+      }, 3000);
+      return;
+    }
+    clearTimeout(resetTimer);
+    resetArmed = false;
+    btnReset.textContent = 'Reset';
+    btnReset.classList.remove('armed');
+    performReset();
+  });
+
+  // ---------- boot ----------
+  function boot(){
+    resize();
+    makeObstacles();
+    makeNutrients();
+    resize(); // rebuild grid/history now that obstacles+nutrients exist
+    refreshLegend();
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener('resize', ()=>{ resize(); });
+  window.addEventListener('orientationchange', ()=>{ setTimeout(resize, 200); });
+
+  boot();
+})();
+</script>
+</body>
+</html>

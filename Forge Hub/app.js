@@ -6,33 +6,6 @@
    ============================================ */
 const projects = [
   {
-    title: "Worldseed",
-    slug: "worldseed",
-    category: "simulation",
-    description: "Procedural world generation experiment.",
-    status: "prototype",
-    thumbnail: "",
-    path: "./projects/worldseed/"
-  },
-  {
-    title: "Evolution Games",
-    slug: "evolution-games",
-    category: "game",
-    description: "Genetic algorithms competing inside a game environment.",
-    status: "prototype",
-    thumbnail: "",
-    path: "./projects/evolution-games/"
-  },
-  {
-    title: "Predator–Prey Simulation",
-    slug: "predator-prey",
-    category: "simulation",
-    description: "Population dynamics between hunters and prey over time.",
-    status: "prototype",
-    thumbnail: "",
-    path: "./projects/predator-prey/"
-  },
-  {
     title: "Digital Ant Colony",
     slug: "digital-ant-colony",
     category: "simulation",
@@ -67,6 +40,51 @@ const projects = [
     status: "prototype",
     thumbnail: "",
     path: "./projects/button-that-judges-you/"
+  },
+  {
+    title: "Aurora Loom",
+    slug: "aurora-loom",
+    category: "experiment",
+    description: "Drag across the sky to pluck and weave glowing threads of aurora light.",
+    status: "prototype",
+    thumbnail: "",
+    path: "./projects/aurora-loom/"
+  },
+  {
+    title: "Gravity Sandbox",
+    slug: "gravity-sandbox",
+    category: "simulation",
+    description: "Spawn planets, moons, stars, and black holes and watch an N-body gravity simulation unfold.",
+    status: "prototype",
+    thumbnail: "",
+    path: "./projects/gravity-sandbox/"
+  },
+  {
+    title: "Molt",
+    slug: "molt",
+    category: "game",
+    description: "Eat anything smaller, avoid anything bigger, and molt into a random mutation as you grow.",
+    status: "prototype",
+    thumbnail: "",
+    path: "./projects/molt/"
+  },
+  {
+    title: "Mycelium",
+    slug: "mycelium",
+    category: "simulation",
+    description: "A fungal growth sim where colonies spread biomass through a nutrient network.",
+    status: "prototype",
+    thumbnail: "",
+    path: "./projects/mycelium/"
+  },
+  {
+    title: "Moonlit Terrarium",
+    slug: "moonlit-terrarium",
+    category: "game",
+    description: "Keep four nocturnal Motes alive for seven quiet nights with one gift per night.",
+    status: "prototype",
+    thumbnail: "",
+    path: "./projects/moonlit-terrarium/"
   }
 ];
 

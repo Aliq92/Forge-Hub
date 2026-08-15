@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Digital Ant Colony</title>
+  <link rel="stylesheet" href="/static/css/colony.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header>
+      <div><strong>Digital Ant Colony</strong><span>Connection: <b data-connection>connecting</b></span></div>
+      <button type="button" data-start>Start synthetic research</button>
+    </header>
+    <section class="status-strip" aria-label="Colony status">
+      <span>Status <b data-colony-status>IDLE</b></span>
+      <span>Cycle <b data-cycle>0</b></span>
+      <span>Ants <b data-ant-count>0</b></span>
+      <span>Tasks <b data-task-count>0</b></span>
+    </section>
+    <div class="observer-grid">
+      <canvas data-colony-canvas width="900" height="560" aria-label="Live digital ant colony"></canvas>
+      <aside>
+        <section><h2>Event trace</h2><ol data-event-history></ol></section>
+        <section><h2>Final synthesis</h2><p data-final-result>Awaiting synthesis</p><p>Confidence <b data-final-confidence>—</b></p></section>
+      </aside>
+    </div>
+  </main>
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

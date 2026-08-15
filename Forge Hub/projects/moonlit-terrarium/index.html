@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Moonlit Terrarium — Seven Quiet Nights</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+
+    <header class="topbar">
+      <h1 class="title">Moonlit Terrarium</h1>
+      <div class="stat-strip">
+        <div class="stat-chip">
+          <span class="stat-label">Night</span>
+          <span class="stat-value" id="nightValue">1 / 7</span>
+        </div>
+        <div class="stat-chip">
+          <span class="stat-label">Time</span>
+          <span class="stat-value" id="timeValue">0:40</span>
+        </div>
+        <div class="stat-chip stat-chip--wide">
+          <span class="stat-label">Colony</span>
+          <span class="stat-value" id="colonyValue">Settling in…</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+
+      <section class="stage-wrapper">
+        <div class="stage" id="stage">
+          <canvas id="terrarium" width="960" height="600"></canvas>
+
+          <!-- Start overlay -->
+          <div class="overlay" id="startOverlay">
+            <div class="overlay-card">
+              <h2>Moonlit Terrarium</h2>
+              <p class="overlay-sub">Seven Quiet Nights</p>
+              <p class="overlay-text">
+                Four Motes live in this little glass world. Watch them forage, drink,
+                rest and gather on their own. Each night you may place exactly one
+                gift — food, water, shelter, or a moon lamp — to help them through
+                until dawn. Keep at least one Mote glowing through all seven nights.
+              </p>
+              <button class="btn btn-primary" id="startBtn">Begin Night 1</button>
+            </div>
+          </div>
+
+          <!-- Victory overlay -->
+          <div class="overlay hidden" id="victoryOverlay">
+            <div class="overlay-card">
+              <h2>Seven Nights, Kept Safe</h2>
+              <p class="overlay-text" id="victoryText">
+                The terrarium glows quietly. Your Motes made it through.
+              </p>
+              <button class="btn btn-primary" id="restartBtnVictory">Watch Again</button>
+            </div>
+          </div>
+
+          <!-- Loss overlay -->
+          <div class="overlay hidden" id="lossOverlay">
+            <div class="overlay-card">
+              <h2>The Glow Has Faded</h2>
+              <p class="overlay-text" id="lossText">
+                Every Mote has grown still. The terrarium waits for another try.
+              </p>
+              <button class="btn btn-primary" id="restartBtnLoss">Try Again</button>
+            </div>
+          </div>
+
+          <div class="pause-banner hidden" id="pauseBanner">Paused</div>
+        </div>
+
+        <div class="happenings" id="happenings" aria-live="polite">
+          <span class="happenings-label">Happenings</span>
+          <div class="happenings-list" id="happeningsList"></div>
+        </div>
+      </section>
+
+      <aside class="panel">
+
+        <div class="panel-block">
+          <h2 class="panel-title">Tonight's gift</h2>
+          <div class="intervention-grid">
+            <button class="intervention-btn" id="btnFood" data-type="food">
+              <span class="intervention-icon" data-icon="food"></span>
+              <span class="intervention-label">Food</span>
+            </button>
+            <button class="intervention-btn" id="btnWater" data-type="water">
+              <span class="intervention-icon" data-icon="water"></span>
+              <span class="intervention-label">Water</span>
+            </button>
+            <button class="intervention-btn" id="btnShelter" data-type="shelter">
+              <span class="intervention-icon" data-icon="shelter"></span>
+              <span class="intervention-label">Shelter</span>
+            </button>
+            <button class="intervention-btn" id="btnLamp" data-type="lamp">
+              <span class="intervention-icon" data-icon="lamp"></span>
+              <span class="intervention-label">Moon Lamp</span>
+            </button>
+          </div>
+          <p class="panel-hint" id="interventionHint">Choose a gift, then tap inside the terrarium to place it.</p>
+        </div>
+
+        <div class="panel-block">
+          <h2 class="panel-title">Selected Mote</h2>
+          <div id="moteInfo" class="mote-info mote-info--empty">
+            <p>Tap a Mote in the terrarium to see how it's doing.</p>
+          </div>
+        </div>
+
+        <div class="panel-block panel-controls">
+          <button class="btn btn-secondary" id="pauseBtn">Pause</button>
+          <button class="btn btn-ghost" id="restartBtn">Restart</button>
+        </div>
+
+      </aside>
+
+    </main>
+  </div>
+
+<script src="script.js"></script>
+</body>
+</html>

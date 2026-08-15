@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Molt</title>
+<style>
+  :root{
+    --bg-deep:#100d1c;
+    --bg-mid:#1b1730;
+    --bg-panel:rgba(27,23,48,0.82);
+    --ink:#ede9f7;
+    --ink-dim:#948da7;
+    --amber:#ffb454;
+    --amber-dim:#7a5a2e;
+    --teal:#4fd8c4;
+    --coral:#ff5c7a;
+    --violet:#8c86b8;
+    --line:rgba(237,233,247,0.10);
+    --font-mono:'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
+    --font-sans:'Inter', ui-sans-serif, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg-deep); overflow:hidden; height:100%; width:100%;}
+  #app{position:fixed; inset:0; background:radial-gradient(ellipse at 50% 30%, var(--bg-mid) 0%, var(--bg-deep) 72%); touch-action:none; user-select:none;}
+  canvas{position:absolute; inset:0; width:100%; height:100%; display:block;}
+
+  /* ---------- HUD ---------- */
+  #hud{position:absolute; top:0; left:0; right:0; padding:10px 12px; display:flex; flex-direction:column; gap:6px; pointer-events:none; font-family:var(--font-sans); z-index:5;}
+  #topRow{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .stat{background:var(--bg-panel); border:1px solid var(--line); border-radius:10px; padding:5px 10px; display:flex; align-items:baseline; gap:6px; backdrop-filter:blur(6px);}
+  .stat .label{font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-dim);}
+  .stat .value{font-family:var(--font-mono); font-size:14px; color:var(--ink); font-weight:600;}
+  .stat.gen .value{color:var(--amber);}
+  .stat .value.low{color:var(--coral); animation:pulseLow 1s ease-in-out infinite;}
+  @keyframes pulseLow{ 0%,100%{opacity:1;} 50%{opacity:0.45;} }
+  #moltBarWrap{height:5px; border-radius:3px; background:rgba(237,233,247,0.08); overflow:hidden; margin-top:1px;}
+  #moltBarFill{height:100%; width:0%; background:linear-gradient(90deg,#ffb454,#ffd9a0); transition:width .15s ease;}
+
+  #lineage{display:flex; align-items:center; gap:3px; overflow-x:auto; max-width:100%; padding:2px 2px 4px; pointer-events:auto;}
+  #lineage::-webkit-scrollbar{height:0;}
+  .dot{width:9px; height:9px; border-radius:50%; flex:0 0 auto; border:1px solid rgba(237,233,247,0.3); position:relative;}
+  .dot.current{width:11px; height:11px; box-shadow:0 0 6px currentColor;}
+  .dotline{width:10px; height:1px; background:var(--line); flex:0 0 auto;}
+
+  #traitRow{display:flex; gap:6px; flex-wrap:wrap; pointer-events:auto;}
+  .traitChip{width:30px; height:30px; border-radius:9px; background:var(--bg-panel); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--ink-dim); backdrop-filter:blur(6px);}
+  .traitChip.owned{color:var(--bg-deep); background:var(--amber); border-color:var(--amber); box-shadow:0 0 10px rgba(255,180,84,0.45);}
+
+  /* ---------- joystick ---------- */
+  #joyZone{position:absolute; left:0; bottom:0; width:46%; max-width:340px; height:44%; max-height:320px; z-index:6;}
+  #joyBase{position:absolute; width:104px; height:104px; border-radius:50%; background:rgba(237,233,247,0.06); border:1px solid rgba(237,233,247,0.18); display:none; align-items:center; justify-content:center;}
+  #joyKnob{position:absolute; width:44px; height:44px; border-radius:50%; background:rgba(255,180,84,0.85); box-shadow:0 0 14px rgba(255,180,84,0.5); left:30px; top:30px; pointer-events:none;}
+  #joyHint{position:absolute; left:16px; bottom:16px; font-family:var(--font-sans); font-size:11px; color:var(--ink-dim); letter-spacing:0.03em; pointer-events:none;}
+
+  /* ---------- mute toggle ---------- */
+  #muteBtn{position:absolute; top:10px; right:12px; z-index:6; width:34px; height:34px; border-radius:10px; background:var(--bg-panel); border:1px solid var(--line); color:var(--ink-dim); font-size:15px; display:flex; align-items:center; justify-content:center; cursor:pointer; backdrop-filter:blur(6px); pointer-events:auto;}
+  #muteBtn.muted{color:var(--coral);}
+
+  /* ---------- overlays ---------- */
+  .overlay{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:20; background:rgba(16,13,28,0.72); backdrop-filter:blur(3px); opacity:0; pointer-events:none; transition:opacity .25s ease;}
+  .overlay.show{opacity:1; pointer-events:auto;}
+  .panel{background:var(--bg-mid); border:1px solid var(--line); border-radius:16px; padding:26px 28px; max-width:min(420px,88vw); text-align:center; font-family:var(--font-sans); color:var(--ink); box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+  .panel h1{font-family:var(--font-mono); font-size:22px; letter-spacing:0.04em; margin:0 0 8px; color:var(--amber);}
+  .panel h2{font-family:var(--font-mono); font-size:17px; letter-spacing:0.03em; margin:0 0 10px; color:var(--amber);}
+  .panel p{font-size:13.5px; line-height:1.55; color:var(--ink-dim); margin:0 0 14px;}
+  .panel .traitName{color:var(--teal); font-weight:600;}
+  .statLine{display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:12.5px; padding:4px 0; border-bottom:1px dashed var(--line); color:var(--ink-dim);}
+  .statLine b{color:var(--ink); font-weight:600;}
+  button.cta{margin-top:14px; background:var(--amber); color:#241505; border:none; border-radius:10px; padding:11px 22px; font-family:var(--font-sans); font-weight:700; font-size:14px; letter-spacing:0.02em; cursor:pointer;}
+  button.cta:active{transform:translateY(1px);}
+  .legend{display:flex; gap:14px; justify-content:center; margin:14px 0 4px; font-family:var(--font-mono); font-size:11px; color:var(--ink-dim);}
+  .legend span{display:inline-flex; align-items:center; gap:5px;}
+  .legend i{width:8px; height:8px; border-radius:50%; display:inline-block;}
+
+  #moltBanner{position:absolute; top:18%; left:50%; transform:translate(-50%,-10px); text-align:center; font-family:var(--font-sans); z-index:15; opacity:0; pointer-events:none; transition:opacity .3s ease, transform .3s ease;}
+  #moltBanner.show{opacity:1; transform:translate(-50%,0);}
+  #moltBanner .tag{font-family:var(--font-mono); font-size:12px; letter-spacing:0.15em; color:var(--amber); text-transform:uppercase;}
+  #moltBanner .name{font-size:20px; font-weight:700; color:var(--ink); margin-top:2px;}
+  #moltBanner .desc{font-size:12.5px; color:var(--ink-dim); margin-top:2px; max-width:280px;}
+
+  @media (max-width:640px){
+    .stat .value{font-size:13px;}
+    .panel{padding:20px 18px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="c"></canvas>
+  <button id="muteBtn" title="Mute sound">🔊</button>
+
+  <div id="hud">
+    <div id="topRow">
+      <div class="stat gen"><span class="label">Gen</span><span class="value" id="statGen">1</span></div>
+      <div class="stat"><span class="label">Mass</span><span class="value" id="statMass">0</span></div>
+      <div class="stat"><span class="label">Time</span><span class="value" id="statTime">0:00</span></div>
+      <div class="stat"><span class="label">Molts</span><span class="value" id="statMolts">0</span></div>
+    </div>
+    <div id="moltBarWrap"><div id="moltBarFill"></div></div>
+    <div id="lineage"></div>
+    <div id="traitRow"></div>
+  </div>
+
+  <div id="moltBanner">
+    <div class="tag">Molt</div>
+    <div class="name" id="moltName">—</div>
+    <div class="desc" id="moltDesc">—</div>
+  </div>
+
+  <div id="joyZone">
+    <div id="joyBase"><div id="joyKnob"></div></div>
+    <div id="joyHint">drag to move · or use arrow keys / WASD</div>
+  </div>
+
+  <div class="overlay show" id="startOverlay">
+    <div class="panel">
+      <h1>MOLT</h1>
+      <p>You are a small creature in a primordial pool. Eat anything smaller. Avoid anything bigger. Grow enough and you'll <b style="color:var(--ink)">molt</b> — shedding your old form for a random mutation.</p>
+      <div class="legend">
+        <span><i style="background:var(--teal)"></i>edible</span>
+        <span><i style="background:var(--violet)"></i>similar size</span>
+        <span><i style="background:var(--coral)"></i>dangerous</span>
+      </div>
+      <p>When you're eaten, your lineage continues — the next generation inherits one trait from the last. How many generations, and how many mutations, can your line discover?</p>
+      <button class="cta" id="btnStart">Begin</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="deathOverlay">
+    <div class="panel">
+      <h2 id="deathTitle">Gone.</h2>
+      <div class="statLine"><span>Generation</span><b id="dGen">1</b></div>
+      <div class="statLine"><span>Survived</span><b id="dTime">0:00</b></div>
+      <div class="statLine"><span>Peak mass</span><b id="dMass">0</b></div>
+      <div class="statLine"><span>Traits carried</span><b id="dTraits">none</b></div>
+      <button class="cta" id="btnContinue">Continue Lineage →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------------- Canvas / world setup ----------------
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  function resize(){
+    const rect = canvas.getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------------- Config ----------------
+  const CFG = {
+    npcCount: 16,
+    npcBaseSpeed: 68,
+    playerBaseSpeed: 96,
+    detectionRadius: 175,
+    eatRatioBase: 1.15,
+    eatRatioIronJaw: 1.03,
+    dangerRatio: 1.15,
+    massStart: 22,
+    massGenBonus: 5,
+    moltThresholds: [40, 90, 160, 260, 400, 600, 850, 1150, 1500, 1950, 2500],
+    decayBase: 0.35,       // mass lost per second, baseline
+    decayPerMass: 0.004,   // additional mass lost per second, scaled by current mass
+    starveFloorRatio: 0.4, // starve when mass drops to this fraction of this generation's start mass
+    moteCount: 10,         // max ambient algae motes alive at once
+    moteMass: 6,           // mass gained per mote, always edible regardless of size
+    moteRadius: 4,
+    packAlertRadius: 260,  // if a pack member is hunting, packmates within this range of the player join in
+  };
+
+  function radiusForMass(m){ return 9 + Math.sqrt(Math.max(m,0)) * 1.55; }
+  const rand = (a,b) => a + Math.random()*(b-a);
+  const clamp = (v,a,b) => Math.max(a, Math.min(b,v));
+  const dist = (ax,ay,bx,by) => Math.hypot(ax-bx, ay-by);
+
+  // ---------------- Audio (synthesized, no external files) ----------------
+  let audioCtx = null, muted = false;
+  function ensureAudio(){
+    if (!audioCtx){
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(e){ audioCtx = null; }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function playTone({freq=440, freqEnd=null, dur=0.15, type='sine', gain=0.2, delay=0}={}){
+    if (!audioCtx || muted) return;
+    const t0 = audioCtx.currentTime + delay;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (freqEnd) osc.frequency.exponentialRampToValueAtTime(Math.max(20,freqEnd), t0+dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.start(t0); osc.stop(t0+dur+0.03);
+  }
+
+  function playNoiseBurst(dur, gainPeak){
+    if (!audioCtx || muted) return;
+    const t0 = audioCtx.currentTime;
+    const size = Math.floor(audioCtx.sampleRate * dur);
+    const buffer = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i=0;i<size;i++){ data[i] = (Math.random()*2-1) * (1 - i/size); }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(gainPeak, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    src.connect(g); g.connect(audioCtx.destination);
+    src.start(t0);
+  }
+
+  function sfxEatMote(){
+    playTone({freq:880, freqEnd:1200, dur:0.08, type:'sine', gain:0.12});
+  }
+  function sfxEatCreature(r){
+    const base = clamp(500 - r*5, 160, 460);
+    playTone({freq:base, freqEnd:base*0.8, dur:0.11, type:'triangle', gain:0.2});
+  }
+  function sfxMolt(){
+    playTone({freq:260, freqEnd:520, dur:0.22, type:'sine', gain:0.22});
+    playTone({freq:390, freqEnd:780, dur:0.28, type:'sine', gain:0.14, delay:0.05});
+  }
+  function sfxRevive(){
+    playTone({freq:200, freqEnd:500, dur:0.3, type:'sine', gain:0.2});
+  }
+  function sfxDeathEaten(){
+    playTone({freq:220, freqEnd:40, dur:0.35, type:'sawtooth', gain:0.22});
+    playNoiseBurst(0.12, 0.18);
+  }
+  function sfxDeathStarved(){
+    playTone({freq:140, freqEnd:60, dur:0.6, type:'sine', gain:0.16});
+  }
+
+  // ---------------- Traits ----------------
+  const TRAITS = [
+    { id:'swift',    icon:'≋', name:'Swift Fins',  desc:'Move 18% faster.',
+      apply:(p)=>{ p.speedMul *= 1.18; } },
+    { id:'shell',     icon:'◈', name:'Broad Shell', desc:'Permanent bulk — instant mass boost.',
+      apply:(p)=>{ p.mass += 55; } },
+    { id:'eye',      icon:'◉', name:'Keen Eye',    desc:'Sense danger and prey from much farther away.',
+      apply:(p)=>{ p.detectionMul *= 1.5; } },
+    { id:'jaw',      icon:'▲', name:'Iron Jaw',    desc:'Can eat prey almost your own size.',
+      apply:(p)=>{ p.eatRatio = CFG.eatRatioIronJaw; } },
+    { id:'shadow',   icon:'●', name:'Shadow Skin', desc:'Predators notice you from much closer.',
+      apply:(p)=>{ p.stealthMul *= 0.55; } },
+    { id:'wind',     icon:'✦', name:'Second Wind', desc:'Survive one fatal bite — consumed on use.',
+      apply:(p)=>{ p.hasSecondWind = true; } },
+  ];
+  function traitById(id){ return TRAITS.find(t=>t.id===id); }
+
+  // ---------------- Game state ----------------
+  let state = 'start'; // start | playing | molting | dead
+  let player, npcs = [], particles = [], motes = [], floatingTexts = [];
+  let generation = 1, moltCount = 0, survivalTime = 0, lastMoltIdx = -1;
+  let lineage = []; // {gen, trait(id|null), survived}
+  let discovered = new Set();
+  let inputVec = {x:0,y:0};
+  let keys = {};
+  let lastTs = 0;
+  let moltBannerTimer = 0;
+  let moteSpawnTimer = 0;
+  let shakeMag = 0;
+
+  function newPlayer(startMass, inheritedTrait){
+    const p = {
+      x: W/2, y: H/2, vx:0, vy:0,
+      mass: startMass,
+      speedMul: 1, detectionMul: 1, stealthMul: 1, eatRatio: CFG.eatRatioBase,
+      hasSecondWind: false,
+      traits: [],
+      wobble: Math.random()*10,
+      hue: 42,
+      floorMass: startMass * CFG.starveFloorRatio,
+    };
+    if (inheritedTrait){
+      const t = traitById(inheritedTrait);
+      if (t){ t.apply(p); p.traits.push(t.id); discovered.add(t.id); }
+    }
+    return p;
+  }
+
+  function ownedTraitNames(p){
+    return p.traits.map(id => traitById(id).name).join(', ') || 'none';
+  }
+
+  function spawnNpc(biasR){
+    const angle = Math.random()*Math.PI*2;
+    const edge = Math.random() < 0.5;
+    let x,y;
+    if (edge){
+      // spawn near an edge so it doesn't pop in on top of the player
+      const side = Math.floor(Math.random()*4);
+      if (side===0){ x = rand(0,W); y = -20; }
+      else if (side===1){ x = W+20; y = rand(0,H); }
+      else if (side===2){ x = rand(0,W); y = H+20; }
+      else { x = -20; y = rand(0,H); }
+    } else {
+      x = rand(0,W); y = rand(0,H);
+    }
+    // size distribution: mostly near/below player size, occasional bigger threat
+    const r = Math.max(player.mass>0?0:0,0);
+    const pr = radiusForMass(player.mass);
+    let radius;
+    const roll = Math.random();
+    if (roll < 0.62) radius = rand(6, Math.max(8, pr*0.85));
+    else if (roll < 0.90) radius = rand(pr*0.7, pr*1.1);
+    else radius = rand(pr*1.15, pr*1.6 + survivalTime*0.15);
+    radius = clamp(radius, 5, pr*2.2 + 20);
+
+    // a portion of the largest, most dangerous spawns band together into hunting packs
+    let packId = null;
+    if (roll >= 0.90 && Math.random() < 0.45) packId = Math.floor(Math.random()*4);
+
+    npcs.push({
+      x, y, vx: Math.cos(angle)*10, vy: Math.sin(angle)*10,
+      r: radius,
+      wanderAngle: Math.random()*Math.PI*2,
+      wanderTimer: rand(0.6,1.8),
+      wobble: Math.random()*10,
+      hue: rand(0,1),
+      packId, hunting:false, fleeing:false, _d:0,
+    });
+  }
+
+  function spawnMote(){
+    motes.push({ x: rand(20,W-20), y: rand(20,H-20), phase: Math.random()*10 });
+  }
+
+  function maintainNpcs(){
+    while (npcs.length < CFG.npcCount) spawnNpc();
+  }
+
+  function resetArena(startMass, inheritedTrait){
+    player = newPlayer(startMass, inheritedTrait);
+    npcs = [];
+    particles = [];
+    floatingTexts = [];
+    motes = [];
+    shakeMag = 0;
+    maintainNpcs();
+    for (let i=0; i<Math.floor(CFG.moteCount*0.6); i++) spawnMote();
+    moteSpawnTimer = rand(0.5,1.5);
+    survivalTime = 0;
+    lastMoltIdx = -1;
+  }
+
+  function startRun(){
+    generation = 1; moltCount = 0; lineage = [];
+    resetArena(CFG.massStart, null);
+    lineage.push({gen:1, trait:null, survived:0});
+    renderLineage();
+    renderTraitRow();
+    state = 'playing';
+    document.getElementById('startOverlay').classList.remove('show');
+    lastTs = performance.now();
+    requestAnimationFrame(loop);
+  }
+
+  function continueLineage(){
+    const prev = lineage[lineage.length-1];
+    prev.survived = survivalTime;
+    generation++;
+    // inherit one random trait from the life just ended, if any
+    let inherited = null;
+    if (player.traits.length){
+      inherited = player.traits[Math.floor(Math.random()*player.traits.length)];
+    }
+    const startMass = CFG.massStart + (generation-1)*CFG.massGenBonus;
+    resetArena(startMass, inherited);
+    lineage.push({gen:generation, trait:inherited, survived:0});
+    renderLineage();
+    renderTraitRow();
+    document.getElementById('deathOverlay').classList.remove('show');
+    state = 'playing';
+    lastTs = performance.now();
+    requestAnimationFrame(loop);
+  }
+
+  // ---------------- Input: joystick ----------------
+  const joyZone = document.getElementById('joyZone');
+  const joyBase = document.getElementById('joyBase');
+  const joyKnob = document.getElementById('joyKnob');
+  let joyActive = false, joyId = null, joyOrigin = {x:0,y:0};
+  const JOY_RADIUS = 52;
+
+  function joyStart(id, x, y){
+    joyActive = true; joyId = id; joyOrigin = {x,y};
+    joyBase.style.display = 'flex';
+    joyBase.style.left = (x-52)+'px';
+    joyBase.style.top = (y-52)+'px';
+    joyKnob.style.left = '30px'; joyKnob.style.top = '30px';
+  }
+  function joyMove(x,y){
+    if (!joyActive) return;
+    let dx = x - joyOrigin.x, dy = y - joyOrigin.y;
+    const d = Math.hypot(dx,dy);
+    const cl = Math.min(d, JOY_RADIUS);
+    const ang = Math.atan2(dy,dx);
+    const kx = Math.cos(ang)*cl, ky = Math.sin(ang)*cl;
+    joyKnob.style.left = (30+kx)+'px'; joyKnob.style.top = (30+ky)+'px';
+    inputVec.x = kx / JOY_RADIUS; inputVec.y = ky / JOY_RADIUS;
+  }
+  function joyEnd(){
+    joyActive = false; joyId = null;
+    joyBase.style.display = 'none';
+    if (!anyKeyActive()) { inputVec.x = 0; inputVec.y = 0; }
+  }
+
+  joyZone.addEventListener('pointerdown', (e)=>{
+    joyZone.setPointerCapture(e.pointerId);
+    joyStart(e.pointerId, e.clientX, e.clientY);
+  });
+  joyZone.addEventListener('pointermove', (e)=>{
+    if (joyId === e.pointerId) joyMove(e.clientX, e.clientY);
+  });
+  window.addEventListener('pointerup', (e)=>{ if (joyId === e.pointerId) joyEnd(); });
+  window.addEventListener('pointercancel', (e)=>{ if (joyId === e.pointerId) joyEnd(); });
+
+  // keyboard
+  function anyKeyActive(){
+    return keys['ArrowUp']||keys['ArrowDown']||keys['ArrowLeft']||keys['ArrowRight']||keys['w']||keys['a']||keys['s']||keys['d'];
+  }
+  window.addEventListener('keydown', (e)=>{ keys[e.key]=true; });
+  window.addEventListener('keyup', (e)=>{ keys[e.key]=false; });
+
+  function currentInputVector(){
+    if (anyKeyActive()){
+      let x=0,y=0;
+      if (keys['ArrowUp']||keys['w']) y -= 1;
+      if (keys['ArrowDown']||keys['s']) y += 1;
+      if (keys['ArrowLeft']||keys['a']) x -= 1;
+      if (keys['ArrowRight']||keys['d']) x += 1;
+      const len = Math.hypot(x,y) || 1;
+      return { x: x/len, y: y/len };
+    }
+    return inputVec;
+  }
+
+  // ---------------- Particles (eat / molt bursts) ----------------
+  function burst(x,y,color,count,speed){
+    for (let i=0;i<count;i++){
+      const a = Math.random()*Math.PI*2;
+      const s = rand(speed*0.3, speed);
+      particles.push({x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:rand(0.4,0.9), maxLife:0.9, color});
+    }
+  }
+
+  function popText(x,y,text,color){
+    floatingTexts.push({x,y,text,color, life:1, maxLife:1, vy:-34});
+  }
+
+  function triggerShake(mag){
+    shakeMag = Math.max(shakeMag, mag);
+  }
+
+  // ---------------- Molt handling ----------------
+  function checkMolt(){
+    const idx = CFG.moltThresholds.findIndex((t,i)=> i>lastMoltIdx && player.mass>=t);
+    if (idx === -1) return;
+    lastMoltIdx = idx;
+    triggerMolt();
+  }
+
+  function triggerMolt(){
+    moltCount++;
+    state = 'molting';
+    triggerShake(7);
+    sfxMolt();
+    burst(player.x, player.y, '255,180,84', 26, 160);
+    const available = TRAITS.filter(t => !player.traits.includes(t.id));
+    let gained;
+    if (available.length){
+      gained = available[Math.floor(Math.random()*available.length)];
+      gained.apply(player);
+      player.traits.push(gained.id);
+      discovered.add(gained.id);
+    } else {
+      // no new traits left: vestigial growth spurt instead
+      player.mass += 45;
+      popText(player.x, player.y-24, '+45', '255,180,84');
+      gained = { name:'Vestigial Surge', desc:'All mutations known — a burst of extra mass instead.' };
+    }
+    document.getElementById('moltName').textContent = gained.name;
+    document.getElementById('moltDesc').textContent = gained.desc;
+    document.getElementById('moltBanner').classList.add('show');
+    moltBannerTimer = 1.7;
+    renderTraitRow();
+    document.getElementById('statMolts').textContent = moltCount;
+  }
+
+  // ---------------- Death handling ----------------
+  function die(cause){
+    triggerShake(player.hasSecondWind ? 8 : 15);
+    if (player.hasSecondWind){
+      player.hasSecondWind = false;
+      player.traits = player.traits.filter(id => id !== 'wind');
+      player.mass = Math.max(CFG.massStart, player.mass*0.5);
+      sfxRevive();
+      burst(player.x, player.y, cause === 'starved' ? '255,180,84' : '79,216,196', 20, 140);
+      renderTraitRow();
+      return; // life continues
+    }
+    state = 'dead';
+    if (cause === 'starved') sfxDeathStarved(); else sfxDeathEaten();
+    const prev = lineage[lineage.length-1];
+    prev.survived = survivalTime;
+    document.getElementById('deathTitle').textContent = cause === 'starved' ? 'Starved.' : 'Eaten.';
+    document.getElementById('dGen').textContent = generation;
+    document.getElementById('dTime').textContent = fmtTime(survivalTime);
+    document.getElementById('dMass').textContent = Math.round(player.mass);
+    document.getElementById('dTraits').textContent = ownedTraitNames(player);
+    document.getElementById('deathOverlay').classList.add('show');
+  }
+
+  // ---------------- Update ----------------
+  function update(dt){
+    survivalTime += dt;
+    shakeMag *= Math.exp(-dt*10);
+    if (shakeMag < 0.05) shakeMag = 0;
+
+    // hunger: mass decays continuously, faster the bigger you are
+    const decayRate = CFG.decayBase + player.mass * CFG.decayPerMass;
+    player.mass = Math.max(0, player.mass - decayRate*dt);
+    if (player.mass <= player.floorMass){
+      die('starved');
+      if (state === 'dead') return;
+    }
+
+    // player movement
+    const iv = currentInputVector();
+    const speed = CFG.playerBaseSpeed * player.speedMul;
+    player.vx = iv.x * speed;
+    player.vy = iv.y * speed;
+    player.x += player.vx*dt; player.y += player.vy*dt;
+
+    const pr = radiusForMass(player.mass);
+    if (player.x < pr){ player.x = pr; }
+    if (player.x > W-pr){ player.x = W-pr; }
+    if (player.y < pr){ player.y = pr; }
+    if (player.y > H-pr){ player.y = pr; }
+
+    // --- npc pass 1: wander target + individual awareness of the player ---
+    const detect = CFG.detectionRadius * player.detectionMul;
+    for (const n of npcs){
+      n.wanderTimer -= dt;
+      if (n.wanderTimer <= 0){
+        n.wanderAngle += rand(-1.4,1.4);
+        n.wanderTimer = rand(0.7,1.9);
+      }
+      n.wanderVX = Math.cos(n.wanderAngle) * CFG.npcBaseSpeed * 0.5;
+      n.wanderVY = Math.sin(n.wanderAngle) * CFG.npcBaseSpeed * 0.5;
+
+      const d = dist(n.x,n.y, player.x, player.y);
+      n._d = d;
+      const ratio = pr / n.r; // >1 means player bigger
+      const isDangerous = n.r >= pr*CFG.dangerRatio;
+      const noticeRange = isDangerous ? detect * player.stealthMul : detect;
+      n.fleeing = ratio > player.eatRatio && !isDangerous && d < noticeRange;
+      n.hunting = isDangerous && d < noticeRange;
+    }
+
+    // --- npc pass 2: pack alert — a hunting predator can pull in packmates who haven't individually noticed the player yet ---
+    for (const n of npcs){
+      if (n.packId == null || n.hunting) continue;
+      for (const m of npcs){
+        if (m === n || m.packId !== n.packId || !m.hunting) continue;
+        if (n._d < CFG.packAlertRadius){ n.hunting = true; break; }
+      }
+    }
+
+    // --- npc pass 3: apply steering + bounds ---
+    for (const n of npcs){
+      let tvx, tvy;
+      const d = n._d || 1;
+      if (n.hunting){
+        const dx = (player.x-n.x)/d, dy = (player.y-n.y)/d;
+        tvx = dx*CFG.npcBaseSpeed*0.92; tvy = dy*CFG.npcBaseSpeed*0.92;
+      } else if (n.fleeing){
+        const dx = (player.x-n.x)/d, dy = (player.y-n.y)/d;
+        tvx = -dx*CFG.npcBaseSpeed*1.15; tvy = -dy*CFG.npcBaseSpeed*1.15;
+      } else {
+        tvx = n.wanderVX; tvy = n.wanderVY;
+      }
+      n.vx += (tvx-n.vx)*Math.min(1, dt*2.2);
+      n.vy += (tvy-n.vy)*Math.min(1, dt*2.2);
+      n.x += n.vx*dt; n.y += n.vy*dt;
+
+      if (n.x < n.r){ n.x=n.r; n.vx=Math.abs(n.vx); }
+      if (n.x > W-n.r){ n.x=W-n.r; n.vx=-Math.abs(n.vx); }
+      if (n.y < n.r){ n.y=n.r; n.vy=Math.abs(n.vy); }
+      if (n.y > H-n.r){ n.y=H-n.r; n.vy=-Math.abs(n.vy); }
+    }
+
+    // collisions
+    for (let i=npcs.length-1; i>=0; i--){
+      const n = npcs[i];
+      const d = dist(n.x,n.y, player.x, player.y);
+      if (d < (pr + n.r) * 0.72){
+        const ratio = pr / n.r;
+        if (ratio >= player.eatRatio){
+          const gained = n.r * 2.15;
+          player.mass += gained;
+          popText(n.x, n.y, '+'+Math.round(gained), '150,255,220');
+          burst(n.x, n.y, '79,216,196', 10, 110);
+          sfxEatCreature(n.r);
+          if (n.r > 13) triggerShake(3);
+          npcs.splice(i,1);
+          checkMolt();
+        } else if (n.r >= pr*CFG.dangerRatio){
+          burst(player.x, player.y, '255,92,122', 18, 150);
+          die('eaten');
+          if (state === 'dead') return;
+        }
+        // similar size: harmless bump, no removal
+      }
+    }
+    maintainNpcs();
+
+    // ambient algae motes: always edible, small, trickle-respawn
+    for (let i=motes.length-1; i>=0; i--){
+      const m = motes[i];
+      const d = dist(m.x,m.y, player.x, player.y);
+      if (d < pr + CFG.moteRadius + 3){
+        player.mass += CFG.moteMass;
+        popText(m.x, m.y, '+'+CFG.moteMass, '170,220,255');
+        burst(m.x, m.y, '170,220,255', 6, 70);
+        sfxEatMote();
+        motes.splice(i,1);
+        checkMolt();
+        if (state === 'molting') break;
+      }
+    }
+    moteSpawnTimer -= dt;
+    if (moteSpawnTimer <= 0 && motes.length < CFG.moteCount){
+      spawnMote();
+      moteSpawnTimer = rand(1.5,3.5);
+    }
+
+    // particles
+    for (let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.life -= dt;
+      p.x += p.vx*dt; p.y += p.vy*dt;
+      p.vx *= 0.92; p.vy *= 0.92;
+      if (p.life <= 0) particles.splice(i,1);
+    }
+
+    // floating texts
+    for (let i=floatingTexts.length-1;i>=0;i--){
+      const f = floatingTexts[i];
+      f.life -= dt*1.1;
+      f.y += f.vy*dt;
+      f.vy *= 0.95;
+      if (f.life <= 0) floatingTexts.splice(i,1);
+    }
+  }
+
+  function fmtTime(s){
+    s = Math.max(0, Math.floor(s));
+    const m = Math.floor(s/60), r = s%60;
+    return m+':'+String(r).padStart(2,'0');
+  }
+
+  // ---------------- Render ----------------
+  function ambientDots(t){
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = '#2a2450';
+    for (let i=0;i<26;i++){
+      const x = (i*137.5 % W);
+      const y = ((i*71 + t*4) % H);
+      ctx.beginPath();
+      ctx.arc(x,y, 1.3, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawCreature(x,y,r,phase,t,fill,glow,cilia){
+    const wob = Math.sin(t*2 + phase) * r * 0.05;
+    ctx.save();
+    if (glow){
+      ctx.shadowColor = glow;
+      ctx.shadowBlur = r*0.9;
+    }
+    ctx.beginPath();
+    ctx.arc(x, y, r+wob, 0, Math.PI*2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.restore();
+
+    // cilia flecks
+    if (cilia){
+      ctx.save();
+      ctx.strokeStyle = cilia;
+      ctx.lineWidth = Math.max(1, r*0.06);
+      ctx.globalAlpha = 0.55;
+      const n = 5;
+      for (let i=0;i<n;i++){
+        const a = (i/n)*Math.PI*2 + t*0.6 + phase;
+        const x1 = x + Math.cos(a)*(r*0.85);
+        const y1 = y + Math.sin(a)*(r*0.85);
+        const x2 = x + Math.cos(a)*(r*1.25 + Math.sin(t*3+i)*2);
+        const y2 = y + Math.sin(a)*(r*1.25 + Math.sin(t*3+i)*2);
+        ctx.beginPath();
+        ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // inner highlight
+    ctx.save();
+    ctx.globalAlpha = 0.28;
+    ctx.beginPath();
+    ctx.arc(x - r*0.3, y - r*0.3, r*0.35, 0, Math.PI*2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function render(t){
+    ctx.clearRect(0,0,W,H);
+    ctx.save();
+    if (shakeMag > 0){
+      ctx.translate((Math.random()-0.5)*shakeMag, (Math.random()-0.5)*shakeMag);
+    }
+    ambientDots(t);
+
+    for (const m of motes){
+      const bob = Math.sin(t*1.5 + m.phase) * 2;
+      ctx.save();
+      ctx.shadowColor = 'rgba(170,220,255,0.7)';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y+bob, CFG.moteRadius, 0, Math.PI*2);
+      ctx.fillStyle = '#aadcff';
+      ctx.fill();
+      ctx.restore();
+    }
+
+    const pr = radiusForMass(player.mass);
+
+    // detection ring if Keen Eye
+    if (player.detectionMul > 1){
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,180,84,0.10)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, CFG.detectionRadius*player.detectionMul, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    for (const n of npcs){
+      const ratio = pr / n.r;
+      let fill, glow;
+      if (ratio >= player.eatRatio){ fill = '#3fae9e'; glow = 'rgba(79,216,196,0.35)'; }
+      else if (n.r >= pr*CFG.dangerRatio){
+        if (n.hunting){ fill = '#ff3355'; glow = 'rgba(255,51,85,0.6)'; }
+        else { fill = '#c94a63'; glow = 'rgba(255,92,122,0.4)'; }
+      }
+      else { fill = '#6d6796'; glow = 'rgba(140,134,184,0.25)'; }
+      drawCreature(n.x, n.y, n.r, n.wobble, t, fill, glow, null);
+    }
+
+    drawCreature(player.x, player.y, pr, player.wobble, t, '#ffb454', 'rgba(255,180,84,0.55)', 'rgba(255,206,140,0.9)');
+
+    for (const p of particles){
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx.fillStyle = `rgba(${p.color},1)`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 2.4, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    if (floatingTexts.length){
+      ctx.save();
+      ctx.font = "700 13px 'JetBrains Mono', ui-monospace, monospace";
+      ctx.textAlign = 'center';
+      for (const f of floatingTexts){
+        ctx.globalAlpha = Math.max(0, f.life / f.maxLife);
+        ctx.fillStyle = `rgba(${f.color},1)`;
+        ctx.fillText(f.text, f.x, f.y);
+      }
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  // ---------------- HUD render helpers ----------------
+  function updateMoltBar(){
+    const thresholds = CFG.moltThresholds;
+    const prevT = lastMoltIdx >= 0 ? thresholds[lastMoltIdx] : 0;
+    const nextIdx = lastMoltIdx + 1;
+    let pct = 1;
+    if (nextIdx < thresholds.length){
+      const nextT = thresholds[nextIdx];
+      pct = clamp((player.mass - prevT) / (nextT - prevT), 0, 1);
+    }
+    document.getElementById('moltBarFill').style.width = (pct*100) + '%';
+  }
+
+  function renderTraitRow(){
+    const row = document.getElementById('traitRow');
+    row.innerHTML = '';
+    for (const t of TRAITS){
+      const owned = player && player.traits.includes(t.id);
+      const el = document.createElement('div');
+      el.className = 'traitChip' + (owned ? ' owned' : '');
+      el.textContent = t.icon;
+      el.title = t.name + ' — ' + t.desc + (owned ? '' : ' (undiscovered)');
+      row.appendChild(el);
+    }
+  }
+
+  function renderLineage(){
+    const el = document.getElementById('lineage');
+    el.innerHTML = '';
+    lineage.forEach((g, i) => {
+      if (i>0){
+        const line = document.createElement('div');
+        line.className = 'dotline';
+        el.appendChild(line);
+      }
+      const dot = document.createElement('div');
+      const isCurrent = i === lineage.length-1;
+      dot.className = 'dot' + (isCurrent ? ' current' : '');
+      const color = g.trait ? '#ffb454' : '#6d6796';
+      dot.style.background = color;
+      dot.style.color = color;
+      dot.title = 'Gen ' + g.gen + (g.trait ? ' — ' + traitById(g.trait).name : ' — no inherited trait') +
+                  (isCurrent ? '' : ' — survived ' + fmtTime(g.survived));
+      el.appendChild(dot);
+    });
+  }
+
+  // ---------------- Main loop ----------------
+  function loop(ts){
+    const dt = Math.min(0.05, (ts - lastTs)/1000 || 0);
+    lastTs = ts;
+    const t = ts/1000;
+
+    if (state === 'molting'){
+      moltBannerTimer -= dt;
+      if (moltBannerTimer <= 0){
+        document.getElementById('moltBanner').classList.remove('show');
+        state = 'playing';
+      }
+      render(t);
+    } else if (state === 'playing'){
+      update(dt);
+      if (state === 'dead') { render(t); return; }
+      render(t);
+      document.getElementById('statGen').textContent = generation;
+      const massEl = document.getElementById('statMass');
+      massEl.textContent = Math.round(player.mass);
+      massEl.classList.toggle('low', player.mass < player.floorMass * 1.6);
+      document.getElementById('statTime').textContent = fmtTime(survivalTime);
+      updateMoltBar();
+    } else {
+      render(t);
+    }
+
+    if (state !== 'dead') requestAnimationFrame(loop);
+  }
+
+  // ---------------- Wire up UI ----------------
+  document.getElementById('btnStart').addEventListener('click', ()=>{ ensureAudio(); startRun(); });
+  document.getElementById('btnContinue').addEventListener('click', ()=>{ ensureAudio(); continueLineage(); });
+
+  const muteBtn = document.getElementById('muteBtn');
+  muteBtn.addEventListener('click', ()=>{
+    ensureAudio();
+    muted = !muted;
+    muteBtn.textContent = muted ? '🔇' : '🔊';
+    muteBtn.classList.toggle('muted', muted);
+  });
+
+  // any early pointer/key interaction also unlocks audio, in case it happens before Begin is pressed
+  window.addEventListener('pointerdown', ensureAudio, {once:true});
+  window.addEventListener('keydown', ensureAudio, {once:true});
+
+  // idle preview render before start
+  player = newPlayer(CFG.massStart, null);
+  maintainNpcs();
+  for (let i=0;i<6;i++) spawnMote();
+  function idlePreview(ts){
+    if (state !== 'start') return;
+    render(ts/1000 || 0);
+    for (const n of npcs){ n.x += n.vx*0.008; n.y += n.vy*0.008; }
+    requestAnimationFrame(idlePreview);
+  }
+  requestAnimationFrame(idlePreview);
+
+})();
+</script>
+</body>
+</html>
