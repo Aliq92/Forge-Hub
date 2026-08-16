@@ -368,6 +368,11 @@ body {
   justify-content: center;
   padding: 20px;
   z-index: 10;
+  overflow-y: auto;
+}
+
+.overlay-card {
+  margin: auto;
 }
 
 .overlay.hidden {

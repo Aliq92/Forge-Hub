@@ -42,8 +42,16 @@ choice. Gifts never accumulate across nights.
 - **Care commitment.** Once a Mote commits to eating, drinking, or
   resting, it stays until the need is meaningfully resolved (Hunger ≤ 25,
   Thirst ≤ 25, Energy ≥ 80), the gift disappears, or a genuinely more
-  urgent need (much higher-priority thirst/hunger, or true exhaustion)
-  overrides it. Ambient wandering/gathering never interrupts care.
+  urgent need overrides it — and "genuinely" is strict: the more urgent
+  need must have its own gift actually present in the terrarium. Urgent
+  Hunger or Thirst can't pull a Mote out of Shelter (or vice versa) if
+  there's nothing placed to satisfy that more urgent need, since that
+  would just abandon a working gift for nothing. The same rule applies
+  when picking a fresh activity: a Mote works down its priority list
+  (exhaustion, urgent thirst, urgent hunger, low energy, then ordinary
+  seeking) and acts on the first need in that list whose gift actually
+  exists, rather than fixating on its single top want and idling if that
+  one isn't available. Ambient wandering/gathering never interrupts care.
 - **Exhaustion has a way out.** A Mote at 0 Energy doesn't decay further
   and always prioritises finding Shelter above anything else once it
   exists in the world. If no Shelter has been placed yet, it drifts
@@ -65,6 +73,10 @@ choice. Gifts never accumulate across nights.
   container (respecting device pixel ratio) without ever stretching or
   distorting the simulated world, on desktop or mobile, portrait or
   landscape.
+- **Scrollable overlays.** The start/victory/loss cards can scroll inside
+  their frame if a very small or unusually shaped viewport can't fit
+  their full height, so the title and button always stay reachable
+  instead of being cropped by the terrarium's fixed aspect ratio.
 - **Pointer Events.** Mouse, touch, and stylus input all go through the
   same `pointerdown` handlers, so behaviour is identical across devices.
 - **Auto-pause.** The `visibilitychange` event pauses the simulation the

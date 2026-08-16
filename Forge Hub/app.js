@@ -103,6 +103,15 @@ const projects = [
     status: "prototype",
     thumbnail: "",
     path: "./projects/the-last-village/"
+  },
+  {
+    title: "Wildfire Simulator",
+    slug: "wildfire-simulator",
+    category: "simulation",
+    description: "An interactive fire spread sandbox — sculpt terrain, set the wind, and watch flames race across it.",
+    status: "prototype",
+    thumbnail: "",
+    path: "./projects/wildfire-simulator/"
   }
 ];
 

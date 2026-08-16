@@ -202,7 +202,9 @@
     const energyUrgent = exhausted || mote.energy <= THRESH.energyUrgent;
 
     // Currently committed to a care activity — keep going unless it
-    // becomes invalid or a genuinely more urgent need appears.
+    // becomes invalid, or a genuinely more urgent need appears AND that
+    // need's gift actually exists (an urgent need with nothing to act on
+    // must not knock a Mote out of a care activity it can still use).
     if (mote.lockedType) {
       const iv = nearestOfType(mote, mote.lockedType);
       const stillGood =
@@ -212,10 +214,10 @@
         !(mote.lockedType === "shelter" && mote.energy >= THRESH.shelterSatisfied);
 
       const overriddenByUrgency =
-        (exhausted && mote.lockedType !== "shelter") ||
-        (mote.lockedType !== "water" && thirstUrgent) ||
-        (mote.lockedType !== "food" && hungerUrgent) ||
-        (mote.lockedType !== "shelter" && energyUrgent);
+        (exhausted && mote.lockedType !== "shelter" && !!nearestOfType(mote, "shelter")) ||
+        (mote.lockedType !== "water" && thirstUrgent && !!nearestOfType(mote, "water")) ||
+        (mote.lockedType !== "food" && hungerUrgent && !!nearestOfType(mote, "food")) ||
+        (mote.lockedType !== "shelter" && energyUrgent && !!nearestOfType(mote, "shelter"));
 
       if (stillGood && !overriddenByUrgency) {
         pursue(mote, iv, dt);
@@ -224,28 +226,29 @@
       mote.lockedType = null;
     }
 
-    // Pick a fresh priority. An exhausted Mote (energy at 0) always
-    // prioritises finding Shelter above everything else so it is never
-    // permanently stuck idle — it will still detour for a critical drink
-    // or meal, but Shelter is the primary drive once truly exhausted.
-    let want = null;
-    if (exhausted) want = "shelter";
-    else if (thirstUrgent) want = "water";
-    else if (hungerUrgent) want = "food";
-    else if (energyUrgent) want = "shelter";
-    else if (mote.thirst >= THRESH.thirstSeek) want = "water";
-    else if (mote.hunger >= THRESH.hungerSeek) want = "food";
-    else if (mote.energy <= THRESH.energySeek) want = "shelter";
+    // Priority order of needs, most urgent first. An exhausted Mote
+    // (energy at 0) always prioritises Shelter above everything else so
+    // it is never permanently stuck idle. Each want is only acted on if
+    // its gift actually exists in the world; otherwise the next-highest
+    // want that does have a gift available is tried, so a Mote never
+    // ignores an available Shelter/Food/Water just because a different,
+    // technically more urgent need has nothing to satisfy it with.
+    const wants = [];
+    if (exhausted) wants.push("shelter");
+    if (thirstUrgent) wants.push("water");
+    if (hungerUrgent) wants.push("food");
+    if (energyUrgent) wants.push("shelter");
+    if (mote.thirst >= THRESH.thirstSeek) wants.push("water");
+    if (mote.hunger >= THRESH.hungerSeek) wants.push("food");
+    if (mote.energy <= THRESH.energySeek) wants.push("shelter");
 
-    if (want) {
+    for (const want of wants) {
       const iv = nearestOfType(mote, want);
       if (iv) {
         mote.lockedType = want;
         pursue(mote, iv, dt);
         return;
       }
-      // Wanted resource does not exist yet — fall through to ambient
-      // behaviour; an exhausted mote still drifts gently, never freezes.
     }
 
     ambientBehaviour(mote, dt);
