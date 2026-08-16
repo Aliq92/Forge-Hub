@@ -985,6 +985,8 @@
     }
     state.night += 1;
     state.timeLeft = NIGHT_DURATION;
+    state.interventions = [];
+    for (const m of state.motes) m.lockedType = null;
     state.interventionUsedThisNight = false;
     state.pendingInterventionType = null;
     updateInterventionButtons();

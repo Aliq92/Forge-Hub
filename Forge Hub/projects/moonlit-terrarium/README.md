@@ -24,15 +24,18 @@ Files:
    drink, and rest on their own.
 3. Pick one gift from the panel: **Food, Water, Shelter,** or **Moon Lamp**.
 4. Tap or click inside the terrarium to place it. You get one placement
-   per night; the controls lock afterward and unlock again at the next dawn.
+   per night; the controls lock afterward. At the next dawn that gift is
+   removed and the controls unlock again for a new choice.
 5. Tap any Mote to see its name, activity, Hunger, Thirst, and Energy.
 6. Each night lasts about 40 seconds. Survive all seven.
 
 **Win:** at least one Mote is still active (Energy above 0) after Night 7.
 **Lose:** all four Motes become exhausted (Energy at 0) at the same time.
 
-Gifts placed in the terrarium stay there for the rest of the game — only
-the *placement* is limited to once per night, so choices accumulate.
+Gifts last only for the night they're placed in: at most one may be placed
+per night, and it is removed from the terrarium (its effect ending with it)
+the moment the next night begins, when the controls unlock for a fresh
+choice. Gifts never accumulate across nights.
 
 ## Gameplay & architecture decisions
 
