@@ -94,6 +94,15 @@ const projects = [
     status: "prototype",
     thumbnail: "",
     path: "./projects/small-world/"
+  },
+  {
+    title: "The Last Village",
+    slug: "the-last-village",
+    category: "simulation",
+    description: "A small world, watching itself: a village of villagers you can pause, speed up, and observe day by day.",
+    status: "prototype",
+    thumbnail: "",
+    path: "./projects/the-last-village/"
   }
 ];
 
