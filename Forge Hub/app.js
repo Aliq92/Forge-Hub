@@ -85,6 +85,15 @@ const projects = [
     status: "prototype",
     thumbnail: "",
     path: "./projects/moonlit-terrarium/"
+  },
+  {
+    title: "Small World",
+    slug: "small-world",
+    category: "simulation",
+    description: "A tiny autonomous village of Worldlings who wander, eat, love, and grow old on their own.",
+    status: "prototype",
+    thumbnail: "",
+    path: "./projects/small-world/"
   }
 ];
 

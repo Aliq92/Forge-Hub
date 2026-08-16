@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Small World</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+
+  <header id="topbar">
+    <div class="brand">🌱 Small World</div>
+
+    <div class="clock">
+      <span id="dayLabel">Day 1</span>
+      <span id="phaseLabel">Dawn</span>
+      <span id="phaseIcon">🌅</span>
+    </div>
+
+    <div class="speed-controls">
+      <button id="btnPause" class="speedBtn" data-speed="0" title="Pause">⏸</button>
+      <button id="btnSpeed1" class="speedBtn active" data-speed="1" title="Normal speed">1x</button>
+      <button id="btnSpeed2" class="speedBtn" data-speed="2" title="Double speed">2x</button>
+      <button id="btnSpeed4" class="speedBtn" data-speed="4" title="Quad speed">4x</button>
+    </div>
+
+    <div class="save-controls">
+      <button id="btnSave" title="Save your world">💾 Save</button>
+      <button id="btnLoad" title="Load your saved world">📂 Load</button>
+      <button id="btnReset" title="Start a brand new world">🔄 New</button>
+    </div>
+  </header>
+
+  <main id="stage">
+    <canvas id="worldCanvas" width="960" height="600"></canvas>
+
+    <div id="statBar">
+      <div class="stat"><span class="stat-icon">👥</span><span id="statPop">0</span><span class="stat-label">Worldlings</span></div>
+      <div class="stat"><span class="stat-icon">🍼</span><span id="statBirths">0</span><span class="stat-label">Births</span></div>
+      <div class="stat"><span class="stat-icon">🕊️</span><span id="statDeaths">0</span><span class="stat-label">Passed</span></div>
+      <div class="stat"><span class="stat-icon">🌾</span><span id="statFood">0</span><span class="stat-label">Food</span></div>
+    </div>
+  </main>
+
+  <aside id="sidebar">
+    <div id="selectionPanel" class="panel">
+      <div class="panel-empty">Click a Worldling to observe them.</div>
+    </div>
+
+    <div id="logPanel" class="panel">
+      <h3>World Log</h3>
+      <ul id="eventLog"></ul>
+    </div>
+  </aside>
+
+</div>
+
+<div id="introOverlay">
+  <div id="introCard">
+    <h1>🌱 Small World</h1>
+    <p>A tiny village of <strong>Worldlings</strong> lives here. Watch them wander, eat, sleep,
+    make friends, fall in love, raise families, and grow old &mdash; all on their own.</p>
+    <p>Click any Worldling to see how they're doing. Ghosts stir in the forest at night, so keep
+    an eye on the fire pit and the houses.</p>
+    <button id="btnStart">Enter the World</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
