@@ -438,21 +438,33 @@ button {
 @media (max-width: 900px) {
   html { font-size: 14px; }
 
-  .hud { padding: 10px; gap: 8px; }
+  .hud {
+    padding: 10px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    gap: 8px;
+  }
 
   .topbar-actions { display: block; }
 
+  .icon-btn { width: 40px; height: 40px; font-size: 17px; }
+
   .panels {
     top: auto;
-    bottom: 60px;
-    left: 10px;
-    right: 10px;
+    bottom: calc(60px + env(safe-area-inset-bottom));
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
     width: auto;
     max-height: 46vh;
+    max-height: 46dvh;
     flex-direction: row;
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
     transition: transform 0.25s ease, opacity 0.25s ease;
   }
   .panels.hidden {
@@ -463,29 +475,43 @@ button {
   .panels > .panel {
     min-width: 240px;
     max-height: 46vh;
+    max-height: 46dvh;
     overflow-y: auto;
+    scroll-snap-align: start;
   }
 
   .stats-bar {
     top: auto;
-    bottom: 10px;
-    left: 10px;
-    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
     justify-content: space-around;
   }
-  .stat { min-width: 0; padding: 6px 8px; flex: 1; border-right: 1px solid var(--panel-border); }
+  .stat { min-width: 0; padding: 8px; flex: 1; border-right: 1px solid var(--panel-border); }
 
   .panel-inspector {
-    top: 56px;
+    top: 60px;
     bottom: auto;
-    right: 10px;
-    left: 10px;
+    right: max(10px, env(safe-area-inset-right));
+    left: max(10px, env(safe-area-inset-left));
     width: auto;
     max-height: 40vh;
+    max-height: 40dvh;
     overflow-y: auto;
   }
+
+  /* Larger touch targets */
+  .type-btn { padding: 12px 10px; }
+  .btn-row button, .btn-col button, .full-btn { padding: 12px 8px; }
+  .speed-group { gap: 6px; }
+  .speed-group button { padding: 11px 2px; font-size: 11px; }
+  .toggle-btn { padding: 10px 12px; font-size: 12px; }
+
+  input[type="range"] { height: 8px; }
+  input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; }
+  input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; }
 }
 
 @media (max-width: 480px) {
-  .panels > .panel { min-width: 200px; }
+  .panels > .panel { min-width: 210px; }
 }
