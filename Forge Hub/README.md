@@ -35,8 +35,7 @@ forge-hub/
 │   │   └── index.html
 │   └── predator-prey/
 │       └── index.html
-└── assets/
-    └── thumbnails/           # Optional card thumbnail images
+└── assets/                  # Reserved for any one-off project assets
 ```
 
 ## Adding a new project
@@ -49,25 +48,43 @@ forge-hub/
 
 2. Put the project's own `index.html` (plus any CSS/JS/assets it needs) inside that folder. Each project is self-contained and can be built however you like — the hub only links to it.
 
-3. (Optional) Add a thumbnail image to `assets/thumbnails/` if you want the card to show a preview instead of the category placeholder.
-
-4. Register the project in `app.js` by adding an entry to the `projects` array at the top of the file:
+3. Register the project in `app.js` by appending an entry to the `projects` array at the top of the file:
 
    ```js
    {
      title: "Your Project Name",
      slug: "your-project-name",
-     category: "simulation",       // simulation | game | tool | experiment
+     category: "simulation",       // simulation | game | tool | experiment | visualization | utility
      description: "One short sentence about what it does.",
-     status: "prototype",          // complete | in-progress | prototype
-     thumbnail: "",                // e.g. "./assets/thumbnails/your-project.png"
+     status: "prototype",          // prototype | active | in-progress | complete | paused | archived | experimental
      path: "./projects/your-project-name/"
    }
    ```
 
-5. Save and refresh the homepage — the card is generated automatically from the registry. No HTML editing required.
+4. Save and refresh the homepage — the card is generated automatically from the registry. No HTML editing required.
+
+Because the new entry is appended to the end of the array, it automatically:
+- gets the next sequential **Forge build number** (`FORGE-013`, etc.)
+- becomes the **"Latest Build"** featured card at the top of the page
 
 If a registered project's folder doesn't exist yet (or its `index.html` is missing), the homepage detects this and marks the card's launch button as unavailable instead of linking to a broken page.
+
+## Card visual identity
+
+There's no thumbnail artwork to design or upload. Each card's compact header — symbol, accent color, glow, badge — is derived automatically from its `category`, via the `categoryStyles` config at the top of `app.js`:
+
+```js
+const categoryStyles = {
+  simulation:    { label: "Simulation",    className: "type-simulation",    icon: "<svg…>" },
+  game:          { label: "Game",          className: "type-game",          icon: "<svg…>" },
+  tool:          { label: "Tool",          className: "type-tool",          icon: "<svg…>" },
+  experiment:    { label: "Experiment",    className: "type-experiment",    icon: "<svg…>" },
+  visualization: { label: "Visualization", className: "type-visualization", icon: "<svg…>" },
+  utility:       { label: "Utility",       className: "type-utility",       icon: "<svg…>" }
+};
+```
+
+So the only thing you normally need to set per project is `category` — its symbol, badge, and accent color (teal for simulations, purple for games, blue for tools, magenta for experiments, green for visualizations) all follow automatically. Each card also gets a subtle, deterministic per-project variation (icon tilt, decorative dot count, build-number watermark) so same-category cards aren't identical. To add a new category, add an entry to `categoryStyles` and a matching `--color-type-*` accent variable in `styles.css`.
 
 ## Filtering
 

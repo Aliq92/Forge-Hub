@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Battle Sandbox</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+
+  <header id="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <span class="brand-text">BATTLE SANDBOX</span>
+    </div>
+
+    <div class="topbar-controls">
+      <button id="btnStart" class="btn btn-primary">Start Battle</button>
+      <button id="btnPause" class="btn" disabled>Pause</button>
+      <button id="btnResume" class="btn" disabled>Resume</button>
+      <button id="btnReset" class="btn">Reset Battle</button>
+      <span class="sep"></span>
+      <label class="speed-label">Speed
+        <select id="speedSelect">
+          <option value="0.5">0.5x</option>
+          <option value="1" selected>1x</option>
+          <option value="2">2x</option>
+          <option value="4">4x</option>
+          <option value="8">8x</option>
+        </select>
+      </label>
+      <span class="sep"></span>
+      <label class="chk"><input type="checkbox" id="sandboxEdit" /> Sandbox Editing</label>
+    </div>
+
+    <div class="topbar-status">
+      <span id="phaseTag" class="tag tag-deploy">DEPLOYMENT</span>
+      <span id="clockTag" class="tag tag-time">00:00</span>
+    </div>
+  </header>
+
+  <div id="main">
+
+    <aside id="leftPanel">
+      <section class="panel-block">
+        <h3>Battlefield</h3>
+        <select id="mapSelect">
+          <option value="open">Open Field</option>
+          <option value="woodland">Woodland</option>
+          <option value="river">River Crossing</option>
+          <option value="broken">Broken Ground</option>
+          <option value="random" selected>Random</option>
+        </select>
+        <div class="row-btns">
+          <button id="btnNewMap" class="btn btn-block">New Battlefield</button>
+        </div>
+        <div class="row-btns">
+          <button id="btnClearAll" class="btn btn-block btn-danger">Clear Battlefield</button>
+        </div>
+      </section>
+
+      <section class="panel-block">
+        <h3>Faction</h3>
+        <div class="faction-toggle">
+          <button id="factionBlue" class="faction-btn faction-blue active">BLUE</button>
+          <button id="factionRed" class="faction-btn faction-red">RED</button>
+        </div>
+        <div class="budget-row">
+          <span id="budgetLabel">Points: 0</span>
+        </div>
+        <div class="row-btns">
+          <button id="btnClearTeam" class="btn btn-block">Clear This Army</button>
+        </div>
+      </section>
+
+      <section class="panel-block">
+        <h3>Budget Mode</h3>
+        <div class="budget-toggle">
+          <button id="modeBalanced" class="mode-btn active">Balanced</button>
+          <button id="modeSandbox" class="mode-btn">Sandbox</button>
+        </div>
+        <label class="budget-input-row">
+          Cap
+          <input type="number" id="budgetCap" value="500" min="50" step="10" />
+        </label>
+      </section>
+
+      <section class="panel-block">
+        <h3>Unit Palette</h3>
+        <div id="unitPalette" class="unit-palette"></div>
+        <div class="tool-row">
+          <button id="toolPlace" class="tool-btn active">Place</button>
+          <button id="toolErase" class="tool-btn">Erase</button>
+        </div>
+      </section>
+
+      <section class="panel-block">
+        <h3>Presets</h3>
+        <select id="presetSelect">
+          <option value="">— Select Preset —</option>
+          <option value="infantry_clash">Infantry Clash</option>
+          <option value="archers_vs_cavalry">Archers vs Cavalry</option>
+          <option value="fortress_line">Fortress Line</option>
+          <option value="armored_assault">Armored Assault</option>
+          <option value="chaos">Chaos Mode</option>
+        </select>
+        <div class="row-btns">
+          <button id="btnLoadPreset" class="btn btn-block">Load Preset</button>
+        </div>
+      </section>
+
+      <section class="panel-block">
+        <h3>Commander Mode</h3>
+        <div class="commander-row">
+          <label>Blue
+            <select id="commanderBlue">
+              <option value="aggressive">Aggressive</option>
+              <option value="balanced" selected>Balanced</option>
+              <option value="defensive">Defensive</option>
+              <option value="ranged_focus">Ranged Focus</option>
+            </select>
+          </label>
+          <label>Red
+            <select id="commanderRed">
+              <option value="aggressive">Aggressive</option>
+              <option value="balanced" selected>Balanced</option>
+              <option value="defensive">Defensive</option>
+              <option value="ranged_focus">Ranged Focus</option>
+            </select>
+          </label>
+        </div>
+      </section>
+    </aside>
+
+    <div id="canvasWrap">
+      <canvas id="battlefield"></canvas>
+      <div id="camControls">
+        <button id="camZoomIn" title="Zoom in">+</button>
+        <button id="camZoomOut" title="Zoom out">−</button>
+        <button id="camFit" title="Fit battlefield">⤢</button>
+        <button id="camReset" title="Reset camera">⟳</button>
+      </div>
+      <div id="battleLogWrap">
+        <div id="battleLog"></div>
+      </div>
+      <div id="endScreen" class="hidden">
+        <div class="end-card">
+          <h2 id="endTitle">VICTORY</h2>
+          <div id="endStats" class="end-stats"></div>
+          <button id="btnEndClose" class="btn btn-primary">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <aside id="rightPanel">
+      <section class="panel-block">
+        <h3>Battle Statistics</h3>
+        <div id="statsPanel" class="stats-panel"></div>
+      </section>
+      <section class="panel-block">
+        <h3>Unit Inspector</h3>
+        <div id="inspectorPanel" class="inspector-panel">
+          <p class="muted">Select a unit to inspect it.</p>
+        </div>
+      </section>
+    </aside>
+
+  </div>
+</div>
+
+<script src="js/terrain.js"></script>
+<script src="js/units.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

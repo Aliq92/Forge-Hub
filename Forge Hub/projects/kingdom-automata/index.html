@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Kingdom Automata</title>
+<meta name="description" content="An autonomous civilization and territorial simulation — watch alternate history unfold.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%B0%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ===================== TOP BAR ===================== -->
+  <header id="topbar">
+    <div class="brand">
+      <span class="brand-mark">&#9819;</span>
+      <span class="brand-name">KINGDOM AUTOMATA</span>
+    </div>
+
+    <div class="sim-controls">
+      <button id="btnPlayPause" class="btn btn-primary" title="Play / Pause">&#9654;</button>
+      <button id="btnReset" class="btn" title="Reset World (same seed)">&#8635;</button>
+      <button id="btnNewWorld" class="btn" title="Generate New World">New World</button>
+
+      <div class="speed-group" id="speedGroup">
+        <button class="speed-btn" data-speed="0.5">0.5x</button>
+        <button class="speed-btn active" data-speed="1">1x</button>
+        <button class="speed-btn" data-speed="2">2x</button>
+        <button class="speed-btn" data-speed="4">4x</button>
+        <button class="speed-btn" data-speed="8">8x</button>
+        <button class="speed-btn" data-speed="16">16x</button>
+      </div>
+    </div>
+
+    <div class="year-display">
+      <span class="year-label">YEAR</span>
+      <span class="year-value" id="yearValue">800</span>
+    </div>
+
+    <button id="btnSummary" class="btn" title="World Summary">Summary</button>
+    <button id="btnSidebarToggle" class="btn icon-only mobile-only" title="Toggle Panels">&#9776;</button>
+  </header>
+
+  <!-- ===================== MAIN LAYOUT ===================== -->
+  <main id="layout">
+
+    <div id="mapWrap">
+      <canvas id="worldCanvas"></canvas>
+
+      <div id="mapModeBar">
+        <button class="mapmode-btn active" data-mode="political" title="Political">Political</button>
+        <button class="mapmode-btn" data-mode="terrain" title="Terrain">Terrain</button>
+        <button class="mapmode-btn" data-mode="population" title="Population">Population</button>
+        <button class="mapmode-btn" data-mode="wealth" title="Wealth">Wealth</button>
+        <button class="mapmode-btn" data-mode="stability" title="Stability">Stability</button>
+        <button class="mapmode-btn" data-mode="war" title="War">War</button>
+      </div>
+
+      <div id="legend"></div>
+      <div id="loadingOverlay" class="hidden"><div class="spinner"></div><div>Generating world&hellip;</div></div>
+    </div>
+
+    <aside id="sidebar">
+
+      <!-- World stats -->
+      <section class="panel" id="panelStats">
+        <h3>World Stats</h3>
+        <div class="stat-grid">
+          <div class="stat"><span class="stat-label">Living Kingdoms</span><span class="stat-value" id="statKingdoms">-</span></div>
+          <div class="stat"><span class="stat-label">Total Population</span><span class="stat-value" id="statPopulation">-</span></div>
+          <div class="stat"><span class="stat-label">Active Wars</span><span class="stat-value" id="statWars">-</span></div>
+          <div class="stat"><span class="stat-label">Alliances</span><span class="stat-value" id="statAlliances">-</span></div>
+          <div class="stat"><span class="stat-label">Settlements</span><span class="stat-value" id="statSettlements">-</span></div>
+          <div class="stat"><span class="stat-label">Largest Kingdom</span><span class="stat-value" id="statLargest">-</span></div>
+          <div class="stat"><span class="stat-label">Oldest Kingdom</span><span class="stat-value" id="statOldest">-</span></div>
+        </div>
+      </section>
+
+      <!-- Kingdom inspector -->
+      <section class="panel hidden" id="panelInspector">
+        <h3><span id="inspName">Kingdom</span><button id="btnCloseInspector" class="btn icon-only small">&times;</button></h3>
+        <div class="inspector-body">
+          <div class="insp-row"><span class="insp-swatch" id="inspSwatch"></span><span id="inspDynasty" class="insp-sub"></span></div>
+          <div class="stat-grid">
+            <div class="stat"><span class="stat-label">Personality</span><span class="stat-value" id="inspPersonality">-</span></div>
+            <div class="stat"><span class="stat-label">Age</span><span class="stat-value" id="inspAge">-</span></div>
+            <div class="stat"><span class="stat-label">Ruler</span><span class="stat-value" id="inspRuler">-</span></div>
+            <div class="stat"><span class="stat-label">Population</span><span class="stat-value" id="inspPopulation">-</span></div>
+            <div class="stat"><span class="stat-label">Treasury</span><span class="stat-value" id="inspTreasury">-</span></div>
+            <div class="stat"><span class="stat-label">Military</span><span class="stat-value" id="inspMilitary">-</span></div>
+            <div class="stat"><span class="stat-label">Technology</span><span class="stat-value" id="inspTech">-</span></div>
+            <div class="stat"><span class="stat-label">Stability</span><span class="stat-value" id="inspStability">-</span></div>
+            <div class="stat"><span class="stat-label">Territory</span><span class="stat-value" id="inspTerritory">-</span></div>
+            <div class="stat"><span class="stat-label">Capital</span><span class="stat-value" id="inspCapital">-</span></div>
+            <div class="stat"><span class="stat-label">Settlements</span><span class="stat-value" id="inspSettlements">-</span></div>
+          </div>
+          <div class="insp-block">
+            <div class="insp-block-title">Wars</div>
+            <div id="inspWars" class="chip-list">-</div>
+          </div>
+          <div class="insp-block">
+            <div class="insp-block-title">Allies</div>
+            <div id="inspAllies" class="chip-list">-</div>
+          </div>
+          <div class="insp-block">
+            <div class="insp-block-title">Relations</div>
+            <div id="inspRelations" class="chip-list">-</div>
+          </div>
+          <div class="insp-block">
+            <div class="insp-block-title">History</div>
+            <div id="inspHistory" class="history-list">-</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Event log -->
+      <section class="panel" id="panelLog">
+        <h3>World History</h3>
+        <div id="eventLog" class="event-log"></div>
+      </section>
+
+      <!-- Observer tools -->
+      <section class="panel collapsible collapsed" id="panelObserver">
+        <h3 class="collapse-toggle">Observer Tools <span class="chev">&#9662;</span></h3>
+        <div class="panel-content">
+          <p class="hint">Select a kingdom on the map first for kingdom-targeted tools.</p>
+          <div class="tool-grid">
+            <button class="btn tool-btn" data-tool="createKingdom">Create Kingdom</button>
+            <button class="btn tool-btn" data-tool="destroyKingdom">Destroy Kingdom</button>
+            <button class="btn tool-btn" data-tool="stabilityUp">+ Stability</button>
+            <button class="btn tool-btn" data-tool="stabilityDown">- Stability</button>
+            <button class="btn tool-btn" data-tool="addPopulation">+ Population</button>
+            <button class="btn tool-btn" data-tool="giveWealth">Give Wealth</button>
+            <button class="btn tool-btn" data-tool="createRebellion">Create Rebellion</button>
+            <button class="btn tool-btn" data-tool="forcePeace">Force Peace (All)</button>
+          </div>
+          <div class="tool-war">
+            <label>Start war between selected &amp; :</label>
+            <select id="warTargetSelect"></select>
+            <button class="btn tool-btn" id="btnStartWar">Start War</button>
+          </div>
+        </div>
+      </section>
+
+    </aside>
+  </main>
+</div>
+
+<!-- ===================== NEW WORLD MODAL ===================== -->
+<div id="worldGenModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h2>Generate New World</h2>
+
+    <div class="field">
+      <label>Preset</label>
+      <select id="cfgPreset">
+        <option value="balanced">Balanced</option>
+        <option value="peaceful">Peaceful World</option>
+        <option value="warring">Warring Kingdoms</option>
+        <option value="fractured">Fractured World</option>
+        <option value="imperial">Imperial Age</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>World Size</label>
+      <select id="cfgWorldSize">
+        <option value="small">Small</option>
+        <option value="medium" selected>Medium</option>
+        <option value="large">Large</option>
+      </select>
+    </div>
+
+    <div class="field slider-field">
+      <label>Starting Kingdoms <output id="outNumKingdoms">6</output></label>
+      <input type="range" id="cfgNumKingdoms" min="2" max="16" value="6">
+    </div>
+
+    <div class="field slider-field">
+      <label>Land Percentage <output id="outLandPct">55%</output></label>
+      <input type="range" id="cfgLandPct" min="25" max="80" value="55">
+    </div>
+
+    <div class="field slider-field">
+      <label>Mountain Frequency <output id="outMtnFreq">30%</output></label>
+      <input type="range" id="cfgMtnFreq" min="0" max="100" value="30">
+    </div>
+
+    <div class="field slider-field">
+      <label>Resource Abundance <output id="outResAbund">30%</output></label>
+      <input type="range" id="cfgResAbund" min="0" max="100" value="30">
+    </div>
+
+    <div class="field slider-field">
+      <label>Conflict Level <output id="outConflict">45%</output></label>
+      <input type="range" id="cfgConflict" min="0" max="100" value="45">
+    </div>
+
+    <div class="field">
+      <label>Random Seed <span class="hint-inline">(blank = random)</span></label>
+      <input type="text" id="cfgSeed" placeholder="e.g. dawnrealm">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" id="btnCancelGen">Cancel</button>
+      <button class="btn btn-primary" id="btnConfirmGen">Generate World</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== WORLD SUMMARY MODAL ===================== -->
+<div id="summaryModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h2>World Summary</h2>
+    <div class="stat-grid" id="summaryStats"></div>
+    <div class="insp-block">
+      <div class="insp-block-title">Historical Timeline</div>
+      <div id="summaryTimeline" class="history-list"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="btnCloseSummary">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script src="js/names.js"></script>
+<script src="js/world.js"></script>
+<script src="js/kingdom.js"></script>
+<script src="js/simulation.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
