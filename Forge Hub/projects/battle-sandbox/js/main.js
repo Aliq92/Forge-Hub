@@ -33,10 +33,17 @@
   var battle = new Battle(map);
   renderer.buildTerrainCache(map);
 
+  var cameraUserAdjusted = false;
+
   function resizeCanvas() {
     var rect = canvas.parentElement.getBoundingClientRect();
     if (rect.width < 2 || rect.height < 2) return;
     renderer.resize(rect.width, rect.height);
+    if (!cameraUserAdjusted) {
+      renderer.fitToWorld();
+    } else {
+      renderer.clampCamera();
+    }
   }
   window.addEventListener("resize", resizeCanvas);
   if (window.ResizeObserver) {
@@ -251,15 +258,19 @@
   }
 
   camZoomIn.addEventListener("click", function () {
+    cameraUserAdjusted = true;
     zoomAtCenter(1.2);
   });
   camZoomOut.addEventListener("click", function () {
+    cameraUserAdjusted = true;
     zoomAtCenter(1 / 1.2);
   });
   camFit.addEventListener("click", function () {
+    cameraUserAdjusted = false;
     renderer.fitToWorld();
   });
   camReset.addEventListener("click", function () {
+    cameraUserAdjusted = true;
     renderer.camera.zoom = 1;
     renderer.camera.x = Terrain.CONFIG.WORLD_W / 2;
     renderer.camera.y = Terrain.CONFIG.WORLD_H / 2;
@@ -274,6 +285,7 @@
 
   canvas.addEventListener("wheel", function (e) {
     e.preventDefault();
+    cameraUserAdjusted = true;
     var rect = canvas.getBoundingClientRect();
     var sx = e.clientX - rect.left, sy = e.clientY - rect.top;
     var before = renderer.screenToWorld(sx, sy);
@@ -390,6 +402,7 @@
       ui.panLast = null;
     }
     if (ui.panning && ui.panLast) {
+      cameraUserAdjusted = true;
       var dxScreen = e.clientX - ui.panLast.x;
       var dyScreen = e.clientY - ui.panLast.y;
       renderer.camera.x -= dxScreen / renderer.camera.zoom;

@@ -104,14 +104,6 @@ const projects = [
     path: "./projects/battle-sandbox/"
   },
   {
-    title: "Probability Playground",
-    slug: "probability-playground",
-    category: "tool",
-    description: "An interactive laboratory for exploring randomness, probability, and statistics through hands-on simulations.",
-    status: "prototype",
-    path: "./projects/probability-playground/"
-  },
-  {
     title: "Ripple Tank",
     slug: "ripple-tank",
     category: "simulation",
@@ -120,12 +112,20 @@ const projects = [
     path: "./projects/ripple-tank/"
   },
   {
-    title: "Water Network Simulator",
-    slug: "water-network-simulator",
+    title: "Satellite Constellation Sandbox",
+    slug: "satellite-constellation-sandbox",
     category: "simulation",
-    description: "Design a water distribution network with reservoirs, pumps, tanks, and valves, then simulate hydraulics and demand over time.",
+    description: "Build single satellites or full constellations and visualize their orbits, coverage, ground tracks, and network links.",
     status: "prototype",
-    path: "./projects/water-network-simulator/"
+    path: "./projects/satellite-constellation-sandbox/"
+  },
+  {
+    title: "Static",
+    slug: "static",
+    category: "experiment",
+    description: "A quiet swarm of light motes that flocks, scatters, and gathers in response to your taps and holds.",
+    status: "prototype",
+    path: "./projects/static/"
   }
 ];
 
