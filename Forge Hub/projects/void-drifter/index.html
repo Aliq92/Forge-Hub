@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Void Drifter</title>
+<meta name="description" content="A minimalist space survival &amp; exploration arcade game. Drift, dodge, collect, upgrade, survive.">
+<meta name="theme-color" content="#05070d">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><circle cx=%2216%22 cy=%2216%22 r=%2214%22 fill=%22%23070914%22/><polygon points=%2216,4 24,26 16,21 8,26%22 fill=%22%2364e0ff%22/></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+<canvas id="minimapCanvas"></canvas>
+
+<!-- ============ HUD ============ -->
+<div id="hud" class="hidden">
+  <div class="hud-top">
+    <div class="hud-bars">
+      <div class="bar-row">
+        <span class="bar-label">HULL</span>
+        <div class="bar hull-bar"><div id="hullFill" class="bar-fill"></div></div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">FUEL</span>
+        <div class="bar fuel-bar"><div id="fuelFill" class="bar-fill"></div></div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">ENERGY</span>
+        <div class="bar energy-bar"><div id="energyFill" class="bar-fill"></div></div>
+      </div>
+      <div class="bar-row shield-row hidden" id="shieldRow">
+        <span class="bar-label">SHIELD</span>
+        <div class="bar shield-bar"><div id="shieldFill" class="bar-fill"></div></div>
+      </div>
+    </div>
+    <div class="hud-stats">
+      <div class="stat"><span class="stat-label">DISTANCE</span><span id="statDistance" class="stat-value">0.00 km</span></div>
+      <div class="stat"><span class="stat-label">BEST</span><span id="statBest" class="stat-value">0.00 km</span></div>
+      <div class="stat"><span class="stat-label">SPEED</span><span id="statSpeed" class="stat-value">0 m/s</span></div>
+      <div class="stat"><span class="stat-label">SALVAGE</span><span id="statSalvage" class="stat-value">0</span></div>
+    </div>
+  </div>
+  <div id="sectorBanner" class="sector-banner"></div>
+  <div id="warnings" class="warnings"></div>
+  <div id="toasts" class="toasts"></div>
+  <div id="interactHint" class="interact-hint hidden">Press <b>E</b> to dock</div>
+</div>
+
+<!-- ============ TITLE SCREEN ============ -->
+<div id="titleScreen" class="screen">
+  <div class="title-wrap">
+    <h1 class="game-title">VOID<span>DRIFTER</span></h1>
+    <p class="tagline">drift &middot; dodge &middot; collect &middot; survive</p>
+    <div class="best-distance">Best Distance: <span id="titleBest">0.00 km</span></div>
+
+    <div class="mode-select">
+      <label for="modeSelect">RUN MODE</label>
+      <select id="modeSelect">
+        <option value="standard" selected>Standard</option>
+        <option value="zen">Zen Drift</option>
+        <option value="hard">Hard Void</option>
+        <option value="hell">Asteroid Hell</option>
+      </select>
+    </div>
+
+    <div class="menu-buttons">
+      <button id="btnStart" class="btn btn-primary">START RUN</button>
+      <button id="btnHowTo" class="btn">HOW TO PLAY</button>
+      <button id="btnSettings" class="btn">SETTINGS</button>
+    </div>
+    <p class="hint">Arrow Keys / WASD to fly &nbsp;&bull;&nbsp; Space to boost &nbsp;&bull;&nbsp; Esc to pause</p>
+  </div>
+</div>
+
+<!-- ============ TUTORIAL ============ -->
+<div id="tutorialScreen" class="screen hidden">
+  <div class="panel tutorial-panel">
+    <h2>HOW TO PLAY</h2>
+    <div class="tutorial-grid">
+      <div class="tut-item"><b>THRUST</b><span>W / &uarr; — accelerate forward. S / &darr; — reverse thrust.</span></div>
+      <div class="tut-item"><b>ROTATE</b><span>A / &larr; and D / &rarr; — turn your ship.</span></div>
+      <div class="tut-item"><b>MOMENTUM</b><span>Your ship drifts — it keeps moving when you stop thrusting. Fly with your velocity, not against it.</span></div>
+      <div class="tut-item"><b>BOOST</b><span>Space — burst of speed. Costs energy.</span></div>
+      <div class="tut-item"><b>FUEL</b><span>Thrusting burns fuel. Run dry and you'll coast on momentum alone — plan ahead.</span></div>
+      <div class="tut-item"><b>COLLECT</b><span>Fly near fuel cells, energy cells, salvage, repair kits &amp; rare cores to pull them in.</span></div>
+      <div class="tut-item"><b>COLLISIONS</b><span>Asteroids hurt more at high speed. Dodge, don't ram.</span></div>
+      <div class="tut-item"><b>UPGRADE</b><span>Every few kilometers, choose an upgrade to improve your ship.</span></div>
+    </div>
+    <button id="btnTutClose" class="btn btn-primary">GOT IT</button>
+  </div>
+</div>
+
+<!-- ============ PAUSE MENU ============ -->
+<div id="pauseScreen" class="screen hidden">
+  <div class="panel">
+    <h2>PAUSED</h2>
+    <div class="menu-buttons">
+      <button id="btnResume" class="btn btn-primary">RESUME</button>
+      <button id="btnRestart" class="btn">RESTART RUN</button>
+      <button id="btnControls" class="btn">CONTROLS</button>
+      <button id="btnPauseSettings" class="btn">SETTINGS</button>
+      <button id="btnToTitle" class="btn">RETURN TO TITLE</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CONTROLS ============ -->
+<div id="controlsScreen" class="screen hidden">
+  <div class="panel">
+    <h2>CONTROLS</h2>
+    <div class="controls-list">
+      <div><span>Thrust</span><b>W / &uarr;</b></div>
+      <div><span>Reverse</span><b>S / &darr;</b></div>
+      <div><span>Rotate Left</span><b>A / &larr;</b></div>
+      <div><span>Rotate Right</span><b>D / &rarr;</b></div>
+      <div><span>Boost</span><b>Space</b></div>
+      <div><span>Interact / Dock</span><b>E</b></div>
+      <div><span>Pause</span><b>Esc</b></div>
+    </div>
+    <button id="btnControlsClose" class="btn btn-primary">CLOSE</button>
+  </div>
+</div>
+
+<!-- ============ SETTINGS ============ -->
+<div id="settingsScreen" class="screen hidden">
+  <div class="panel">
+    <h2>SETTINGS</h2>
+    <div class="settings-list">
+      <div class="setting-row">
+        <label for="musicVolume">Music Volume</label>
+        <input type="range" id="musicVolume" min="0" max="100" value="50">
+      </div>
+      <div class="setting-row">
+        <label for="soundVolume">Sound Volume</label>
+        <input type="range" id="soundVolume" min="0" max="100" value="70">
+      </div>
+      <div class="setting-row">
+        <label for="screenShake">Screen Shake</label>
+        <input type="checkbox" id="screenShake" checked>
+      </div>
+      <div class="setting-row">
+        <label for="particleDensity">Particle Density</label>
+        <select id="particleDensity">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <label for="showFps">Show FPS</label>
+        <input type="checkbox" id="showFps">
+      </div>
+      <div class="setting-row">
+        <label for="reducedMotion">Reduced Motion</label>
+        <input type="checkbox" id="reducedMotion">
+      </div>
+    </div>
+    <button id="btnSettingsClose" class="btn btn-primary">DONE</button>
+  </div>
+</div>
+
+<!-- ============ UPGRADE SELECT ============ -->
+<div id="upgradeScreen" class="screen hidden">
+  <div class="panel upgrade-panel">
+    <h2>SYSTEM UPGRADE AVAILABLE</h2>
+    <p class="upgrade-sub">Choose one enhancement for your ship.</p>
+    <div id="upgradeChoices" class="upgrade-choices"></div>
+    <button id="btnSkipUpgrade" class="btn">SKIP</button>
+  </div>
+</div>
+
+<!-- ============ STATION ============ -->
+<div id="stationScreen" class="screen hidden">
+  <div class="panel station-panel">
+    <h2>DRIFTING STATION</h2>
+    <p class="upgrade-sub">Salvage on hand: <span id="stationSalvage">0</span></p>
+    <div class="station-options">
+      <button id="btnStationRepair" class="btn station-btn">
+        <span class="station-btn-title">REPAIR HULL</span>
+        <span class="station-btn-desc" id="stationRepairDesc"></span>
+      </button>
+      <button id="btnStationRefuel" class="btn station-btn">
+        <span class="station-btn-title">REFUEL</span>
+        <span class="station-btn-desc" id="stationRefuelDesc"></span>
+      </button>
+      <button id="btnStationUpgrade" class="btn station-btn">
+        <span class="station-btn-title">BUY UPGRADE</span>
+        <span class="station-btn-desc" id="stationUpgradeDesc">Spend salvage on a ship upgrade</span>
+      </button>
+    </div>
+    <button id="btnStationLeave" class="btn btn-primary">UNDOCK</button>
+  </div>
+</div>
+
+<!-- ============ GAME OVER ============ -->
+<div id="gameOverScreen" class="screen hidden">
+  <div class="panel gameover-panel">
+    <h2 id="gameOverTitle">SHIP DESTROYED</h2>
+    <div class="gameover-stats">
+      <div><span>Distance Travelled</span><b id="goDistance">0.00 km</b></div>
+      <div><span>Sectors Survived</span><b id="goSectors">0</b></div>
+      <div><span>Salvage Collected</span><b id="goSalvage">0</b></div>
+      <div><span>Asteroids Hit</span><b id="goHits">0</b></div>
+      <div><span>Resources Collected</span><b id="goResources">0</b></div>
+      <div><span>Upgrades Acquired</span><b id="goUpgrades">0</b></div>
+      <div><span>Best Distance</span><b id="goBest">0.00 km</b></div>
+    </div>
+    <div class="menu-buttons">
+      <button id="btnRetry" class="btn btn-primary">RETRY</button>
+      <button id="btnGoToTitle" class="btn">RETURN TO MENU</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MOBILE TOUCH CONTROLS ============ -->
+<div id="touchControls" class="touch-controls hidden">
+  <div class="touch-left">
+    <button id="touchLeft" class="touch-btn">&#8634;</button>
+    <button id="touchRight" class="touch-btn">&#8635;</button>
+  </div>
+  <div class="touch-right">
+    <button id="touchBoost" class="touch-btn touch-boost">BOOST</button>
+    <button id="touchThrust" class="touch-btn touch-thrust">&#9650;</button>
+  </div>
+  <button id="touchPause" class="touch-btn touch-pause">&#10074;&#10074;</button>
+</div>
+
+<div id="fpsCounter" class="fps-counter hidden">0 FPS</div>
+
+<script src="js/utils.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/input.js"></script>
+<script src="js/starfield.js"></script>
+<script src="js/particles.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/ship.js"></script>
+<script src="js/asteroids.js"></script>
+<script src="js/resources.js"></script>
+<script src="js/hazards.js"></script>
+<script src="js/sectors.js"></script>
+<script src="js/stations.js"></script>
+<script src="js/upgrades.js"></script>
+<script src="js/events.js"></script>
+<script src="js/achievements.js"></script>
+<script src="js/world.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -112,20 +112,20 @@ const projects = [
     path: "./projects/ripple-tank/"
   },
   {
-    title: "Satellite Constellation Sandbox",
-    slug: "satellite-constellation-sandbox",
-    category: "simulation",
-    description: "Build single satellites or full constellations and visualize their orbits, coverage, ground tracks, and network links.",
-    status: "prototype",
-    path: "./projects/satellite-constellation-sandbox/"
-  },
-  {
     title: "Static",
     slug: "static",
     category: "experiment",
     description: "A quiet swarm of light motes that flocks, scatters, and gathers in response to your taps and holds.",
     status: "prototype",
     path: "./projects/static/"
+  },
+  {
+    title: "Void Drifter",
+    slug: "void-drifter",
+    category: "game",
+    description: "A minimalist space survival and exploration arcade game — drift, dodge, collect, upgrade, survive.",
+    status: "prototype",
+    path: "./projects/void-drifter/"
   }
 ];
 
