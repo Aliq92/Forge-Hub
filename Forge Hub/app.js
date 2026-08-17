@@ -110,6 +110,22 @@ const projects = [
     description: "An interactive laboratory for exploring randomness, probability, and statistics through hands-on simulations.",
     status: "prototype",
     path: "./projects/probability-playground/"
+  },
+  {
+    title: "Ripple Tank",
+    slug: "ripple-tank",
+    category: "simulation",
+    description: "A wave interference apparatus — drop sources into a virtual tank and watch ripples reflect, refract, and interfere.",
+    status: "prototype",
+    path: "./projects/ripple-tank/"
+  },
+  {
+    title: "Water Network Simulator",
+    slug: "water-network-simulator",
+    category: "simulation",
+    description: "Design a water distribution network with reservoirs, pumps, tanks, and valves, then simulate hydraulics and demand over time.",
+    status: "prototype",
+    path: "./projects/water-network-simulator/"
   }
 ];
 

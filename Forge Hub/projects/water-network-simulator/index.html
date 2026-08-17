@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+<title>Water Network Simulator</title>
+<link rel="icon" href="data:," />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+
+  <header id="topbar">
+    <div class="brand">
+      <span class="brand-icon">💧</span>
+      <span class="brand-title">WATER NETWORK SIMULATOR</span>
+    </div>
+
+    <div class="toolgroup" id="buildTools">
+      <button class="tool-btn active" data-tool="select" title="Select / Move">Select</button>
+      <button class="tool-btn" data-tool="reservoir" title="Place Reservoir">Reservoir</button>
+      <button class="tool-btn" data-tool="pump" title="Place Pump">Pump</button>
+      <button class="tool-btn" data-tool="tank" title="Place Tank">Tank</button>
+      <button class="tool-btn" data-tool="junction" title="Place Junction">Junction</button>
+      <button class="tool-btn" data-tool="demand" title="Place Demand Node">Demand</button>
+      <button class="tool-btn" data-tool="valve" title="Place Valve">Valve</button>
+      <button class="tool-btn" data-tool="pipe" title="Connect two nodes with a pipe">Pipe</button>
+      <button class="tool-btn danger" data-tool="delete" title="Click a component to delete it">Delete</button>
+    </div>
+
+    <div class="toolgroup">
+      <button id="btnHelp" class="icon-btn" title="Help / Concepts">?</button>
+    </div>
+  </header>
+
+  <div id="subbar">
+    <div class="toolgroup">
+      <button id="btnPlay" class="ctl-btn primary">▶ Play</button>
+      <button id="btnPause" class="ctl-btn" disabled>⏸ Pause</button>
+      <button id="btnResetSim" class="ctl-btn">↺ Reset Simulation</button>
+      <button id="btnClearNetwork" class="ctl-btn warn">✕ Clear Network</button>
+    </div>
+
+    <div class="toolgroup">
+      <label class="mini-label">Speed</label>
+      <select id="speedSelect">
+        <option value="0.5">0.5x</option>
+        <option value="1" selected>1x</option>
+        <option value="2">2x</option>
+        <option value="4">4x</option>
+        <option value="8">8x</option>
+      </select>
+      <span id="simClock" class="sim-clock">t = 00:00</span>
+    </div>
+
+    <div class="toolgroup">
+      <label class="mini-label">Demand</label>
+      <select id="demandModeSelect">
+        <option value="constant">Constant</option>
+        <option value="daily">Daily Cycle</option>
+      </select>
+    </div>
+
+    <div class="toolgroup">
+      <label class="mini-label">Scenario</label>
+      <select id="scenarioSelect"><option value="">New Scenario…</option></select>
+      <select id="challengeSelect"><option value="">Failure Challenge…</option></select>
+    </div>
+
+    <div class="toolgroup">
+      <label class="mini-label">Overlay</label>
+      <select id="overlaySelect">
+        <option value="none">Schematic</option>
+        <option value="pressure">Pressure</option>
+        <option value="flow">Flow</option>
+        <option value="demand">Demand</option>
+        <option value="utilization">Pipe Utilization</option>
+        <option value="leaks">Leaks</option>
+        <option value="tank">Tank Level</option>
+      </select>
+      <button id="btnLabels" class="icon-btn" title="Toggle map labels">Labels ▾</button>
+      <button id="btnFlowAnim" class="icon-btn active" title="Toggle flow animation">Flow FX</button>
+    </div>
+  </div>
+
+  <div id="labelsMenu" class="dropdown-panel hidden">
+    <label><input type="checkbox" id="lblNames" checked /> Node Names</label>
+    <label><input type="checkbox" id="lblPressure" /> Pressure Values</label>
+    <label><input type="checkbox" id="lblFlow" /> Flow Values</label>
+    <label><input type="checkbox" id="lblPipeIds" /> Pipe IDs</label>
+    <label><input type="checkbox" id="lblWarnings" checked /> Warnings</label>
+  </div>
+
+  <main id="workspace">
+    <div id="canvasWrap">
+      <canvas id="netCanvas"></canvas>
+      <div id="canvasHint" class="canvas-hint"></div>
+      <div id="challengeBanner" class="challenge-banner hidden">
+        <div class="cb-title"></div>
+        <div class="cb-metric"></div>
+        <button class="cb-close">✕</button>
+      </div>
+    </div>
+
+    <aside id="inspector">
+      <div class="panel-title">Inspector</div>
+      <div id="inspectorBody"><p class="muted">Select a component to view and edit its properties.</p></div>
+    </aside>
+  </main>
+
+  <section id="bottomPanel">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="stats">Statistics</button>
+      <button class="tab-btn" data-tab="warnings">Warnings</button>
+      <button class="tab-btn" data-tab="log">Event Log</button>
+      <button class="tab-btn" data-tab="analysis">Analysis</button>
+      <button class="tab-btn" data-tab="charts">Charts</button>
+      <button id="btnCollapseBottom" class="tab-collapse" title="Collapse panel">▾</button>
+    </div>
+    <div class="tab-content">
+      <div id="tab-stats" class="tab-pane active">
+        <div id="healthBadge" class="health-badge HEALTHY">HEALTHY</div>
+        <div id="healthReason" class="muted small"></div>
+        <div id="statsGrid" class="stats-grid"></div>
+      </div>
+      <div id="tab-warnings" class="tab-pane">
+        <ul id="warningsList" class="log-list"></ul>
+      </div>
+      <div id="tab-log" class="tab-pane">
+        <ul id="eventLogList" class="log-list"></ul>
+      </div>
+      <div id="tab-analysis" class="tab-pane">
+        <div id="analysisCards" class="analysis-grid"></div>
+      </div>
+      <div id="tab-charts" class="tab-pane">
+        <div class="charts-grid">
+          <div class="chart-box"><div class="chart-title">Demand (amber) vs Supply (green), L/s</div><canvas id="chartDemand"></canvas></div>
+          <div class="chart-box"><div class="chart-title">Average Pressure (m)</div><canvas id="chartPressure"></canvas></div>
+          <div class="chart-box"><div class="chart-title">Average Tank Level (%)</div><canvas id="chartTank"></canvas></div>
+          <div class="chart-box"><div class="chart-title">Water Lost to Leaks (L/s)</div><canvas id="chartLoss"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer id="disclaimer">
+    Water Network Simulator is an educational sandbox using simplified hydraulic calculations. It is not a substitute for professional hydraulic modelling, engineering design software, or field measurements.
+  </footer>
+</div>
+
+<div id="helpModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-header"><span>Help &amp; Concepts</span><button id="btnCloseHelp" class="icon-btn">✕</button></div>
+    <div class="modal-body" id="helpBody"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="js/components.js"></script>
+<script src="js/network.js"></script>
+<script src="js/hydraulics.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/scenarios.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
