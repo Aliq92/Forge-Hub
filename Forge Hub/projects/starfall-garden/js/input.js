@@ -69,7 +69,10 @@ SG.Input = class {
     const len = Math.hypot(dx, dy);
     if (len > maxR) { dx = (dx / len) * maxR; dy = (dy / len) * maxR; }
     this.joyX = dx / maxR; this.joyY = dy / maxR;
-    if (stick) stick.style.transform = `translate(${dx - 28}px, ${dy - 28}px)`;
+    if (stick) {
+      const half = stick.offsetWidth / 2;
+      stick.style.transform = `translate(${dx - half}px, ${dy - half}px)`;
+    }
   }
 
   _onKeyDown(e) {

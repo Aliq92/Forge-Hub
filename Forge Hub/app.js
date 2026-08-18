@@ -134,6 +134,14 @@ const projects = [
     description: "A peaceful survival-and-restoration game on a tiny drifting world — tend plants and weather meteor storms.",
     status: "prototype",
     path: "./projects/starfall-garden/"
+  },
+  {
+    title: "Comet Shepherd",
+    slug: "comet-shepherd",
+    category: "game",
+    description: "Guide a fragile comet through a procedural solar system using gravity, momentum, and skill.",
+    status: "prototype",
+    path: "./projects/comet-shepherd/"
   }
 ];
 

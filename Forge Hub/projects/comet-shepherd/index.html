@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Comet Shepherd</title>
+<meta name="description" content="Guide a fragile comet through a procedural solar system using gravity, momentum, and skill." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='7' fill='%2399e6ff'/%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%2399e6ff' stroke-opacity='0.4'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+
+  <canvas id="game-canvas"></canvas>
+  <canvas id="minimap-canvas"></canvas>
+  <canvas id="fx-canvas"></canvas>
+
+  <!-- ===================== TITLE SCREEN ===================== -->
+  <section id="screen-title" class="screen active">
+    <div class="title-wrap">
+      <h1 class="game-title">COMET&nbsp;SHEPHERD</h1>
+      <p class="game-subtitle">Momentum is destiny. Gravity is your only ally.</p>
+      <nav class="menu">
+        <button class="menu-btn primary" data-action="begin-journey">BEGIN JOURNEY</button>
+        <button class="menu-btn" data-action="how-to-play">HOW TO PLAY</button>
+        <button class="menu-btn" data-action="settings">SETTINGS</button>
+        <button class="menu-btn" data-action="best-run">BEST RUN</button>
+      </nav>
+      <p class="title-hint">Mouse/Touch to aim &amp; correct &middot; Arrow/AD nudge &middot; Space impulse &middot; E preview &middot; Esc pause</p>
+    </div>
+  </section>
+
+  <!-- ===================== HOW TO PLAY ===================== -->
+  <section id="screen-howto" class="screen">
+    <div class="panel wide">
+      <h2>HOW TO PLAY</h2>
+      <div class="howto-grid">
+        <div class="howto-card">
+          <h3>Momentum</h3>
+          <p>Your comet drifts forever on its current heading unless gravity or a correction changes it. You never steer directly — you nudge.</p>
+        </div>
+        <div class="howto-card">
+          <h3>Course Correction</h3>
+          <p>Click / touch and drag away from the comet, then release to fire a small thrust in that direction. Arrow keys / A &amp; D give cheap, precise lateral nudges. Every correction spends Correction Energy.</p>
+        </div>
+        <div class="howto-card">
+          <h3>Trajectory Preview</h3>
+          <p>Hold <b>E</b> or drag to reveal a projected path bent by nearby gravity. Use it to judge whether you'll clear a planet — or slingshot around it.</p>
+        </div>
+        <div class="howto-card">
+          <h3>Gravity Assists</h3>
+          <p>Skim close to a planet without colliding and its gravity will whip you onto a faster new heading. Watch for the SLINGSHOT feedback.</p>
+        </div>
+        <div class="howto-card">
+          <h3>Ice &amp; Heat</h3>
+          <p>Sunlight melts you. Ice Integrity is your health — it drops from heat, collisions and hazards. Stay cold, collect ice fragments, and mind the CRITICAL warning.</p>
+        </div>
+        <div class="howto-card">
+          <h3>Reaching the Gate</h3>
+          <p>Every system has a deep-space gate near its outer edge. Reach it to bank an upgrade and warp to a harder, stranger system.</p>
+        </div>
+      </div>
+      <button class="menu-btn primary" data-action="close-howto">GOT IT</button>
+    </div>
+  </section>
+
+  <!-- ===================== SETTINGS ===================== -->
+  <section id="screen-settings" class="screen">
+    <div class="panel">
+      <h2>SETTINGS</h2>
+      <div class="settings-list">
+        <label class="setting-row">
+          <span>Music Volume</span>
+          <input type="range" id="set-music" min="0" max="100" value="50" />
+        </label>
+        <label class="setting-row">
+          <span>Sound Volume</span>
+          <input type="range" id="set-sound" min="0" max="100" value="70" />
+        </label>
+        <label class="setting-row">
+          <span>Screen Shake</span>
+          <input type="checkbox" id="set-shake" checked />
+        </label>
+        <label class="setting-row">
+          <span>Particle Density</span>
+          <select id="set-particles">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span>Trajectory Detail</span>
+          <select id="set-trajectory">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span>Reduced Motion</span>
+          <input type="checkbox" id="set-reduced" />
+        </label>
+        <label class="setting-row">
+          <span>Show FPS</span>
+          <input type="checkbox" id="set-fps" />
+        </label>
+      </div>
+      <button class="menu-btn primary" data-action="close-settings">DONE</button>
+    </div>
+  </section>
+
+  <!-- ===================== BEST RUN ===================== -->
+  <section id="screen-bestrun" class="screen">
+    <div class="panel">
+      <h2>BEST RUN</h2>
+      <div id="bestrun-stats" class="stats-list"></div>
+      <button class="menu-btn primary" data-action="close-bestrun">BACK</button>
+    </div>
+  </section>
+
+  <!-- ===================== HUD (in-game) ===================== -->
+  <div id="hud" class="hud hidden">
+    <div class="hud-top">
+      <div class="bar-group">
+        <div class="bar-label">ICE</div>
+        <div class="bar ice"><div class="bar-fill" id="bar-ice"></div></div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-label">HEAT <span id="heat-label">COLD</span></div>
+        <div class="bar heat"><div class="bar-fill" id="bar-heat"></div></div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-label">ENERGY</div>
+        <div class="bar energy"><div class="bar-fill" id="bar-energy"></div></div>
+      </div>
+    </div>
+    <div class="hud-side">
+      <div class="hud-stat"><span class="hud-icon">&#10022;</span><span id="stat-stardust">0</span></div>
+      <div class="hud-stat"><span class="hud-icon">&#9679;</span><span id="stat-system">Sys 1</span></div>
+      <div class="hud-stat"><span class="hud-icon">&#8594;</span><span id="stat-speed">0</span></div>
+      <div class="hud-stat"><span class="hud-icon">&#8901;&#8901;&#8901;</span><span id="stat-distance">0</span></div>
+      <div class="hud-stat preview-status" id="preview-status">PREVIEW OFF</div>
+    </div>
+    <div id="warnings" class="warnings"></div>
+    <div id="feedback-layer" class="feedback-layer"></div>
+    <div class="energy-hint" id="energy-hint"></div>
+  </div>
+
+  <button id="pause-btn" class="icon-btn hidden" data-action="pause">&#10073;&#10073;</button>
+
+  <!-- ===================== PAUSE ===================== -->
+  <section id="screen-pause" class="screen">
+    <div class="panel">
+      <h2>PAUSED</h2>
+      <nav class="menu">
+        <button class="menu-btn primary" data-action="resume">RESUME</button>
+        <button class="menu-btn" data-action="pause-settings">SETTINGS</button>
+        <button class="menu-btn" data-action="quit-title">RETURN TO TITLE</button>
+      </nav>
+    </div>
+  </section>
+
+  <!-- ===================== UPGRADE SCREEN ===================== -->
+  <section id="screen-upgrade" class="screen">
+    <div class="panel wide">
+      <h2>GATE REACHED</h2>
+      <p class="upgrade-sub">Choose an upgrade before the next system.</p>
+      <div id="upgrade-cards" class="upgrade-cards"></div>
+    </div>
+  </section>
+
+  <!-- ===================== GAME OVER ===================== -->
+  <section id="screen-gameover" class="screen">
+    <div class="panel">
+      <h2 id="gameover-title">THE COMET BREAKS APART</h2>
+      <div id="gameover-stats" class="stats-list"></div>
+      <nav class="menu">
+        <button class="menu-btn primary" data-action="retry">RETRY</button>
+        <button class="menu-btn" data-action="quit-title">RETURN TO TITLE</button>
+      </nav>
+    </div>
+  </section>
+
+  <!-- ===================== MILESTONE ===================== -->
+  <section id="screen-milestone" class="screen">
+    <div class="panel">
+      <h2>THE COMET REACHES THE OUTER DARK</h2>
+      <p class="upgrade-sub">Ten systems crossed. The dark ahead is quiet and unmapped.</p>
+      <nav class="menu">
+        <button class="menu-btn primary" data-action="continue-endless">CONTINUE ENDLESS</button>
+        <button class="menu-btn" data-action="quit-title">RETURN TO TITLE</button>
+      </nav>
+    </div>
+  </section>
+
+  <div id="fade-overlay"></div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
