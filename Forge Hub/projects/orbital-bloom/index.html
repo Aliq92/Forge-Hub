@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Orbital Bloom — Gravity Particle Sandbox</title>
+<meta name="description" content="A beautiful gravity-particle sandbox. Place attractors, spawn clouds of glowing particles, and watch gravity produce rings, spirals, accretion discs, and chaotic orbital structures." />
+<meta name="theme-color" content="#050611" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='14' fill='%23ffd27a'/%3E%3Cellipse cx='50' cy='50' rx='44' ry='16' fill='none' stroke='%235be3ff' stroke-width='4'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ============ TITLE SCREEN ============ -->
+<section id="title-screen" class="screen" aria-label="Title screen">
+  <canvas id="title-canvas" aria-hidden="true"></canvas>
+  <div class="title-content">
+    <h1 class="title-logo">ORBITAL <span>BLOOM</span></h1>
+    <p class="title-tagline">A gravity-particle sandbox. Place worlds. Spin light into orbit.</p>
+    <div class="title-buttons">
+      <button id="btn-enter-sandbox" class="btn btn-primary btn-large">Enter Sandbox</button>
+      <button id="btn-title-presets" class="btn btn-ghost">Presets</button>
+      <button id="btn-title-how" class="btn btn-ghost">How It Works</button>
+      <button id="btn-title-settings" class="btn btn-ghost">Settings</button>
+    </div>
+  </div>
+  <div class="title-footer">Desktop, tablet &amp; mobile · No account needed</div>
+</section>
+
+<!-- ============ SANDBOX SCREEN ============ -->
+<section id="sandbox-screen" class="screen hidden" aria-label="Sandbox">
+  <canvas id="sim-canvas"></canvas>
+
+  <!-- Top bar -->
+  <header id="topbar">
+    <div class="topbar-group brand-group">
+      <button id="btn-back-title" class="icon-btn" title="Back to title screen" aria-label="Back to title screen">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <span class="brand-label">ORBITAL BLOOM</span>
+    </div>
+
+    <div class="topbar-group transport-group">
+      <button id="btn-play-pause" class="btn btn-compact" aria-label="Play or pause simulation">
+        <span id="play-pause-icon">&#10074;&#10074;</span>
+        <span id="play-pause-label">Pause</span>
+      </button>
+      <button id="btn-step" class="btn btn-compact" title="Step forward one frame">Step</button>
+      <label class="field-inline" title="Simulation speed">
+        <span class="sr-only">Speed</span>
+        <select id="select-speed">
+          <option value="0.25">0.25×</option>
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+          <option value="8">8×</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="topbar-group camera-group">
+      <button id="btn-cam-reset" class="icon-btn" title="Reset camera" aria-label="Reset camera">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>
+      </button>
+      <button id="btn-cam-fit" class="icon-btn" title="Fit active system" aria-label="Fit active system">
+        <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button id="btn-cam-focus" class="icon-btn" title="Focus selected attractor" aria-label="Focus selected attractor">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <div class="topbar-group stats-group">
+      <span id="stat-fps" class="fps-readout hidden">-- FPS</span>
+      <button id="btn-settings-open" class="icon-btn" title="Settings" aria-label="Open settings">
+        <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 13a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.9 2.9l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6V19a2 2 0 11-4 0v-.2a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.9-2.9l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H4a2 2 0 110-4h.2a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.9-2.9l.1.1a1.7 1.7 0 001.9.3H10a1.7 1.7 0 001-1.6V4a2 2 0 114 0v.2a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.9 2.9l-.1.1a1.7 1.7 0 00-.3 1.9V10a1.7 1.7 0 001.6 1H20a2 2 0 110 4h-.2a1.7 1.7 0 00-1.6 1z" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+      </button>
+      <button id="btn-panels-toggle" class="icon-btn panels-toggle-mobile" title="Toggle panels" aria-label="Toggle panels">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Left tool rail -->
+  <nav id="tool-rail" aria-label="Tools">
+    <button class="tool-btn active" data-tool="select" title="Select">
+      <svg viewBox="0 0 24 24"><path d="M5 3l14 8-6 1.5L11 19z" fill="currentColor"/></svg>
+      <span>Select</span>
+    </button>
+    <button class="tool-btn" data-tool="move" title="Move attractor">
+      <svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M5 8l-3 4 3 4M19 8l3 4-3 4M8 5l4-3 4 3M8 19l4 3 4-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Move</span>
+    </button>
+    <div class="rail-divider"></div>
+    <button class="tool-btn" data-tool="star" title="Place star">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="#ffd27a"/></svg>
+      <span>Star</span>
+    </button>
+    <button class="tool-btn" data-tool="planet" title="Place planet">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="#5be3ff"/></svg>
+      <span>Planet</span>
+    </button>
+    <button class="tool-btn" data-tool="heavyCore" title="Place heavy core">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="#b389ff"/></svg>
+      <span>Heavy Core</span>
+    </button>
+    <button class="tool-btn" data-tool="anchor" title="Place fixed anchor">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="none" stroke="#eef3ff" stroke-width="2" stroke-dasharray="2,2"/></svg>
+      <span>Anchor</span>
+    </button>
+    <div class="rail-divider"></div>
+    <button class="tool-btn" data-tool="cloud" title="Spawn cloud">
+      <svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="1.6" fill="currentColor"/><circle cx="15" cy="8" r="1.2" fill="currentColor"/><circle cx="12" cy="14" r="1.4" fill="currentColor"/><circle cx="16" cy="15" r="1" fill="currentColor"/><circle cx="8" cy="15" r="1" fill="currentColor"/></svg>
+      <span>Cloud</span>
+    </button>
+    <button class="tool-btn" data-tool="ring" title="Spawn ring">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+      <span>Ring</span>
+    </button>
+    <button class="tool-btn" data-tool="disc" title="Spawn disc">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="currentColor" opacity="0.5"/></svg>
+      <span>Disc</span>
+    </button>
+    <button class="tool-btn" data-tool="jet" title="Spawn jet">
+      <svg viewBox="0 0 24 24"><path d="M4 12h13M12 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Jet</span>
+    </button>
+    <div class="rail-divider"></div>
+    <button class="tool-btn" data-tool="impulse" title="Impulse (drag to push particles)">
+      <svg viewBox="0 0 24 24"><path d="M3 12h11M10 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Impulse</span>
+    </button>
+    <button class="tool-btn" data-tool="erase" title="Erase">
+      <svg viewBox="0 0 24 24"><path d="M18 13l-8 8H6l-3-3 11-11z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 5l5 5" stroke="currentColor" stroke-width="1.6"/></svg>
+      <span>Erase</span>
+    </button>
+  </nav>
+
+  <!-- Right side panel -->
+  <aside id="side-panel" aria-label="Simulation panel">
+
+    <div class="panel-section" data-section="spawn">
+      <button class="panel-section-header">Spawn Settings <span class="chevron">&#9660;</span></button>
+      <div class="panel-section-body">
+        <label class="field">Cloud Mode
+          <select id="spawn-cloud-mode">
+            <option value="static">Static</option>
+            <option value="rotating" selected>Rotating</option>
+          </select>
+        </label>
+        <label class="field">Amount
+          <select id="spawn-amount">
+            <option value="100">100</option>
+            <option value="500" selected>500</option>
+            <option value="1000">1,000</option>
+            <option value="2500">2,500</option>
+            <option value="5000">5,000</option>
+          </select>
+        </label>
+        <label class="field">Radius <output id="out-spawn-radius">120</output>
+          <input type="range" id="spawn-radius" min="20" max="500" step="5" value="120" />
+        </label>
+        <label class="field">Spread <output id="out-spawn-spread">0.35</output>
+          <input type="range" id="spawn-spread" min="0" max="1" step="0.01" value="0.35" />
+        </label>
+        <label class="field">Initial Velocity <output id="out-spawn-speed">40</output>
+          <input type="range" id="spawn-speed" min="-200" max="400" step="5" value="40" />
+        </label>
+        <label class="field">
+          Spin <output id="out-spawn-spin">18</output>
+          <input type="range" id="spawn-spin" min="-100" max="100" step="1" value="18" />
+        </label>
+        <div class="field-hint">Negative = counter-clockwise · 0 = none · Positive = clockwise</div>
+        <label class="checkbox-field">
+          <input type="checkbox" id="spawn-continuous" />
+          Continuous Stream (Trail Stream mode)
+        </label>
+        <div class="field-hint">Drag on the canvas with Cloud / Ring / Disc / Jet to place &amp; size. Double-click for a quick burst.</div>
+      </div>
+    </div>
+
+    <div class="panel-section" data-section="attractor">
+      <button class="panel-section-header">Attractor Defaults <span class="chevron">&#9660;</span></button>
+      <div class="panel-section-body">
+        <label class="checkbox-field">
+          <input type="checkbox" id="attractor-fixed" />
+          Place as Fixed (does not move)
+        </label>
+        <div class="field-hint">Anchors are always fixed. Alt+drag (or the Move tool) repositions an attractor.</div>
+      </div>
+    </div>
+
+    <div class="panel-section" data-section="world">
+      <button class="panel-section-header">World &amp; Visuals <span class="chevron">&#9660;</span></button>
+      <div class="panel-section-body">
+        <label class="field">Gravity Strength <output id="out-gravity">1.00</output>
+          <input type="range" id="gravity-strength" min="0.1" max="3" step="0.05" value="1" />
+        </label>
+        <label class="field">Trail Length
+          <select id="trail-length">
+            <option value="off">Off</option>
+            <option value="short">Short</option>
+            <option value="medium" selected>Medium</option>
+            <option value="long">Long</option>
+            <option value="extreme">Extreme</option>
+          </select>
+        </label>
+        <label class="field">Trail Style
+          <select id="trail-style">
+            <option value="soft" selected>Soft</option>
+            <option value="line">Line</option>
+            <option value="comet">Comet</option>
+            <option value="dust">Dust</option>
+          </select>
+        </label>
+        <label class="field">Color Mode
+          <select id="color-mode">
+            <option value="uniform" selected>Uniform</option>
+            <option value="speed">Speed</option>
+            <option value="gravity">Gravity</option>
+            <option value="age">Age</option>
+            <option value="orbital">Orbital</option>
+          </select>
+        </label>
+        <label class="field">Particle Brightness <output id="out-brightness">1.00</output>
+          <input type="range" id="particle-brightness" min="0.3" max="2" step="0.05" value="1" />
+        </label>
+        <label class="field">Particle Size <output id="out-size">1.00</output>
+          <input type="range" id="particle-size" min="0.4" max="2.5" step="0.05" value="1" />
+        </label>
+        <label class="field">Absorption Mode
+          <select id="absorb-mode">
+            <option value="absorb" selected>Absorb</option>
+            <option value="passthrough">Pass Through</option>
+          </select>
+        </label>
+        <label class="checkbox-field">
+          <input type="checkbox" id="classification-overlay" />
+          Classification Overlay
+        </label>
+      </div>
+    </div>
+
+    <div class="panel-section collapsed" data-section="presets">
+      <button class="panel-section-header">Presets <span class="chevron">&#9660;</span></button>
+      <div class="panel-section-body">
+        <div id="preset-grid" class="preset-grid"></div>
+      </div>
+    </div>
+
+    <div class="panel-section" data-section="inspector" id="inspector-section" style="display:none;">
+      <button class="panel-section-header">Selected Attractor <span class="chevron">&#9660;</span></button>
+      <div class="panel-section-body">
+        <label class="field">Name
+          <input type="text" id="insp-name" maxlength="24" />
+        </label>
+        <div class="insp-row"><span>Type</span><span id="insp-type">—</span></div>
+        <label class="field">Mass <output id="out-insp-mass">0</output>
+          <input type="range" id="insp-mass" min="40" max="400000" step="10" value="1000" />
+        </label>
+        <div class="insp-grid">
+          <label class="field-sm">Vel X <input type="number" id="insp-vx" step="1" /></label>
+          <label class="field-sm">Vel Y <input type="number" id="insp-vy" step="1" /></label>
+        </div>
+        <div class="insp-row"><span>Speed</span><span id="insp-speed">0</span></div>
+        <div class="insp-row"><span>Position</span><span id="insp-pos">0, 0</span></div>
+        <div class="insp-row"><span>Nearby Particles</span><span id="insp-nearby">0</span></div>
+        <label class="checkbox-field">
+          <input type="checkbox" id="insp-fixed" />
+          Fixed (does not move)
+        </label>
+        <div class="insp-actions">
+          <button id="btn-insp-focus" class="btn btn-compact">Focus</button>
+          <button id="btn-insp-delete" class="btn btn-compact btn-danger">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-section collapsed" data-section="stats">
+      <button class="panel-section-header">Live Statistics <span class="chevron">&#9660;</span></button>
+      <div class="panel-section-body">
+        <div class="stat-grid">
+          <div><span>Particles</span><strong id="stat-particles">0</strong></div>
+          <div><span>Attractors</span><strong id="stat-attractors">0</strong></div>
+          <div><span>Sim Time</span><strong id="stat-simtime">0s</strong></div>
+          <div><span>Avg Speed</span><strong id="stat-avgspeed">0</strong></div>
+          <div><span>Max Speed</span><strong id="stat-maxspeed">0</strong></div>
+          <div><span>Absorbed</span><strong id="stat-absorbed">0</strong></div>
+          <div><span>Gravity</span><strong id="stat-gravity">1.00×</strong></div>
+          <div><span>FPS</span><strong id="stat-fps-panel">60</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-section collapsed" data-section="energy">
+      <button class="panel-section-header">Energy / Motion View <span class="chevron">&#9660;</span></button>
+      <div class="panel-section-body">
+        <div class="field-hint">Heuristic estimates, not precise astrophysics.</div>
+        <div class="stat-grid">
+          <div><span>Bound</span><strong id="stat-bound">0</strong></div>
+          <div><span>Falling</span><strong id="stat-falling">0</strong></div>
+          <div><span>Escaping</span><strong id="stat-escaping">0</strong></div>
+          <div><span>Chaotic</span><strong id="stat-chaotic">0</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-section collapsed" data-section="challenges">
+      <button class="panel-section-header">Challenges <span class="chevron">&#9660;</span></button>
+      <div class="panel-section-body">
+        <div id="challenge-list"></div>
+      </div>
+    </div>
+
+    <div class="panel-section collapsed" data-section="sim-controls">
+      <button class="panel-section-header">Simulation <span class="chevron">&#9660;</span></button>
+      <div class="panel-section-body">
+        <div class="btn-row">
+          <button id="btn-clear-trails" class="btn btn-compact">Clear Trails</button>
+          <button id="btn-clear-particles" class="btn btn-compact">Clear Particles</button>
+        </div>
+        <div class="btn-row">
+          <button id="btn-clear-attractors" class="btn btn-compact">Clear Attractors</button>
+          <button id="btn-clear-all" class="btn btn-compact">Clear All</button>
+        </div>
+        <div class="btn-row">
+          <button id="btn-reset-sim" class="btn btn-compact btn-danger">Reset Simulation</button>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+</section>
+
+<!-- ============ MODALS ============ -->
+<div id="modal-overlay" class="modal-overlay hidden">
+
+  <div id="modal-presets" class="modal hidden" role="dialog" aria-label="Presets">
+    <div class="modal-header"><h2>Presets</h2><button class="modal-close" data-close>&times;</button></div>
+    <div class="modal-body"><div id="preset-grid-modal" class="preset-grid"></div></div>
+  </div>
+
+  <div id="modal-how" class="modal hidden" role="dialog" aria-label="How it works">
+    <div class="modal-header"><h2>How It Works</h2><button class="modal-close" data-close>&times;</button></div>
+    <div class="modal-body how-body">
+      <p><strong>Attractors pull particles.</strong> Stars, planets, heavy cores and anchors bend the paths of nearby particles with gravity.</p>
+      <p><strong>Particles keep their momentum.</strong> Once moving, they continue in a straight line until gravity curves them.</p>
+      <p><strong>Spin creates orbital motion.</strong> Give a spawned cloud spin and it will settle into rings, spirals, and discs instead of collapsing to a point.</p>
+      <p><strong>Stronger gravity bends trajectories more.</strong> Raise Gravity Strength to see sharper slingshots and tighter orbits.</p>
+      <p><strong>Multiple attractors create chaos.</strong> Two or three moving bodies interacting produce complex, unpredictable structures.</p>
+      <p>Pause anytime, drag attractors with Alt or the Move tool, then resume to see the whole structure reorganize.</p>
+    </div>
+  </div>
+
+  <div id="modal-settings" class="modal hidden" role="dialog" aria-label="Settings">
+    <div class="modal-header"><h2>Settings</h2><button class="modal-close" data-close>&times;</button></div>
+    <div class="modal-body">
+      <label class="field">Particle Density
+        <select id="setting-particle-density">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+        </select>
+      </label>
+      <label class="field">Trail Quality
+        <select id="setting-trail-quality">
+          <option value="standard">Standard</option>
+          <option value="high" selected>High</option>
+        </select>
+      </label>
+      <label class="field">Background Stars
+        <select id="setting-bg-density">
+          <option value="0.4">Sparse</option>
+          <option value="1" selected>Normal</option>
+          <option value="1.8">Dense</option>
+        </select>
+      </label>
+      <label class="checkbox-field"><input type="checkbox" id="setting-motion-blur" /> Motion Blur</label>
+      <label class="checkbox-field"><input type="checkbox" id="setting-reduced-motion" /> Reduced Motion</label>
+      <label class="checkbox-field"><input type="checkbox" id="setting-show-fps" /> Show FPS</label>
+      <label class="checkbox-field"><input type="checkbox" id="setting-screen-flash" checked /> Screen Flash</label>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Beat Foundry — Browser Groovebox</title>
+<meta name="description" content="Beat Foundry: a self-contained browser groovebox. Sequence beats, play a bass line, tweak effects, and jam — no install, no login." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23151a19%22/><rect x=%2222%22 y=%2258%22 width=%2212%22 height=%2226%22 rx=%223%22 fill=%22%236ee7c9%22/><rect x=%2244%22 y=%2238%22 width=%2212%22 height=%2246%22 rx=%223%22 fill=%22%236ee7c9%22/><rect x=%2266%22 y=%2248%22 width=%2212%22 height=%2236%22 rx=%223%22 fill=%22%236ee7c9%22/></svg>" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ HEADER ============ -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <h1>BEAT FOUNDRY</h1>
+    </div>
+
+    <div class="project-controls">
+      <label class="visually-hidden" for="projectName">Project name</label>
+      <input id="projectName" type="text" value="Untitled Beat" maxlength="40" autocomplete="off" spellcheck="false" />
+      <button id="btnSave" class="btn-ghost" type="button" title="Save Project">Save</button>
+      <button id="btnLoad" class="btn-ghost" type="button" title="Load Project">Load</button>
+      <button id="btnNew" class="btn-ghost" type="button" title="New Project">New</button>
+      <span id="saveStatus" class="save-status" aria-live="polite"></span>
+    </div>
+
+    <div class="header-actions">
+      <button id="btnHelp" class="btn-icon" type="button" aria-haspopup="dialog" title="Help">?</button>
+      <button id="btnReducedMotion" class="btn-icon" type="button" aria-pressed="false" title="Toggle reduced motion">RM</button>
+    </div>
+  </header>
+
+  <!-- ============ ENABLE AUDIO OVERLAY ============ -->
+  <div id="audioGate" class="audio-gate" role="dialog" aria-modal="true" aria-labelledby="audioGateTitle">
+    <div class="audio-gate-card">
+      <span class="brand-mark large" aria-hidden="true"></span>
+      <h2 id="audioGateTitle">BEAT FOUNDRY</h2>
+      <p>A tasteful demo groove is loaded and ready. Tap below to start the sound engine.</p>
+      <button id="btnEnableAudio" class="btn-primary btn-large" type="button">START MAKING</button>
+    </div>
+  </div>
+
+  <!-- ============ TRANSPORT ============ -->
+  <section class="transport" aria-label="Transport controls">
+    <div class="transport-main">
+      <button id="btnPlay" class="btn-transport btn-play" type="button" aria-pressed="false">
+        <span class="ico-play" aria-hidden="true"></span><span class="lbl">PLAY</span>
+      </button>
+      <button id="btnStop" class="btn-transport" type="button">
+        <span class="ico-stop" aria-hidden="true"></span><span class="lbl">STOP</span>
+      </button>
+      <button id="btnReset" class="btn-transport" type="button" title="Reset playhead to step 1">
+        <span class="ico-reset" aria-hidden="true"></span><span class="lbl">RESET</span>
+      </button>
+    </div>
+
+    <div class="transport-knobs">
+      <div class="knob-field">
+        <label for="bpmRange">BPM</label>
+        <input id="bpmRange" type="range" min="60" max="180" value="120" step="1" />
+        <output id="bpmValue" for="bpmRange">120</output>
+      </div>
+      <div class="knob-field">
+        <label for="swingRange">SWING</label>
+        <input id="swingRange" type="range" min="0" max="70" value="0" step="1" />
+        <output id="swingValue" for="swingRange">0%</output>
+      </div>
+    </div>
+
+    <div class="transport-status" aria-live="polite">
+      <div class="status-chip"><span class="status-label">STEP</span><span id="stepReadout">1</span></div>
+      <div class="status-chip"><span class="status-label">PATTERN</span><span id="patternReadout">A</span></div>
+      <div class="status-chip" id="nextPatternChip" hidden><span class="status-label">NEXT</span><span id="nextPatternReadout">–</span></div>
+    </div>
+  </section>
+
+  <!-- ============ SEQUENCER ============ -->
+  <main class="sequencer-panel">
+    <div class="step-ruler" aria-hidden="true">
+      <div class="ruler-spacer"></div>
+      <div class="ruler-steps" id="rulerSteps"></div>
+    </div>
+    <div id="sequencerGrid" class="sequencer-grid" role="group" aria-label="16-step sequencer"></div>
+  </main>
+
+  <!-- ============ DRUM PADS ============ -->
+  <section class="pads-panel" aria-label="Drum pads">
+    <div class="panel-heading"><h2>PADS</h2><span class="panel-sub">Tap to play live, even while the sequencer runs</span></div>
+    <div id="padsGrid" class="pads-grid"></div>
+  </section>
+
+  <!-- ============ BASS PANEL ============ -->
+  <details class="collapsible" id="bassPanel" open>
+    <summary>BASS SYNTH</summary>
+    <div class="panel-body">
+      <div class="bass-controls">
+        <div class="field">
+          <label for="waveformSelect">Waveform</label>
+          <select id="waveformSelect">
+            <option value="sawtooth">Sawtooth</option>
+            <option value="square">Square</option>
+            <option value="triangle">Triangle</option>
+            <option value="sine">Sine</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cutoffRange">Cutoff</label>
+          <input id="cutoffRange" type="range" min="100" max="6000" value="1400" step="10" />
+        </div>
+        <div class="field">
+          <label for="resonanceRange">Resonance</label>
+          <input id="resonanceRange" type="range" min="0.1" max="16" value="3" step="0.1" />
+        </div>
+        <div class="field">
+          <label for="decayRange">Decay</label>
+          <input id="decayRange" type="range" min="0.05" max="1.2" value="0.32" step="0.01" />
+        </div>
+        <div class="field">
+          <label for="driveRange">Drive</label>
+          <input id="driveRange" type="range" min="0" max="1" value="0" step="0.01" />
+        </div>
+      </div>
+
+      <div class="scale-controls">
+        <div class="field">
+          <label for="rootSelect">Root</label>
+          <select id="rootSelect"></select>
+        </div>
+        <div class="field">
+          <label for="scaleSelect">Scale</label>
+          <select id="scaleSelect"></select>
+        </div>
+      </div>
+
+      <div class="note-picker-wrap">
+        <div class="panel-sub" id="notePickerLabel">Select a bass step on the grid to edit its note</div>
+        <div id="notePicker" class="note-picker" role="listbox" aria-label="Bass note picker"></div>
+      </div>
+    </div>
+  </details>
+
+  <!-- ============ PATTERNS ============ -->
+  <details class="collapsible" id="patternsPanel" open>
+    <summary>PATTERNS</summary>
+    <div class="panel-body">
+      <div class="pattern-tabs" id="patternTabs" role="group" aria-label="Pattern selection"></div>
+      <div class="pattern-actions">
+        <button id="btnDuplicate" class="btn-ghost" type="button">Duplicate</button>
+        <button id="btnClearPattern" class="btn-ghost btn-danger" type="button">Clear Pattern</button>
+        <button id="btnClearTrackHint" class="btn-ghost" type="button" title="Click a track name to clear just that track" disabled>Clear Track: click a track label</button>
+      </div>
+
+      <div class="randomize-row">
+        <button id="btnRandomizeDrums" class="btn-accent" type="button">Randomize Drums</button>
+        <button id="btnRandomizeBass" class="btn-accent" type="button">Randomize Bass</button>
+        <button id="btnRandomizeAll" class="btn-accent" type="button">Randomize All</button>
+        <div class="field density-field">
+          <label for="densityRange">Density</label>
+          <input id="densityRange" type="range" min="10" max="100" value="50" step="5" />
+        </div>
+      </div>
+
+      <details class="collapsible nested">
+        <summary>Pattern Chain</summary>
+        <div class="panel-body">
+          <p class="panel-sub">Build a short chain and the sequencer will play through it automatically, advancing on the bar.</p>
+          <div class="chain-controls">
+            <label class="switch">
+              <input type="checkbox" id="chainEnabled" />
+              <span>Chain Mode</span>
+            </label>
+            <div class="chain-add" id="chainAdd"></div>
+          </div>
+          <div id="chainList" class="chain-list" aria-label="Pattern chain"></div>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <!-- ============ PRESETS ============ -->
+  <details class="collapsible" id="presetsPanel" open>
+    <summary>PRESETS</summary>
+    <div class="panel-body">
+      <div id="presetsGrid" class="presets-grid"></div>
+    </div>
+  </details>
+
+  <!-- ============ MIXER (rendered inline per-track inside sequencer rows; this holds master + kit) ============ -->
+  <details class="collapsible" id="fxPanel" open>
+    <summary>MASTER &amp; FX</summary>
+    <div class="panel-body">
+      <div class="fx-grid">
+        <div class="fx-group">
+          <h3>Master</h3>
+          <div class="field">
+            <label for="masterVolumeRange">Volume</label>
+            <input id="masterVolumeRange" type="range" min="0" max="1" value="0.82" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="masterFilterRange">Filter Cutoff</label>
+            <input id="masterFilterRange" type="range" min="200" max="20000" value="20000" step="10" />
+          </div>
+          <div class="field">
+            <label for="masterResonanceRange">Filter Resonance</label>
+            <input id="masterResonanceRange" type="range" min="0.1" max="12" value="0.6" step="0.1" />
+          </div>
+          <div class="field">
+            <label for="kitSelect">Sound Kit</label>
+            <select id="kitSelect"></select>
+          </div>
+          <div class="field">
+            <label for="sidechainSelect">Sidechain</label>
+            <select id="sidechainSelect">
+              <option value="off">Off</option>
+              <option value="low">Low</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="fx-group">
+          <h3>Delay</h3>
+          <div class="field">
+            <label for="delayAmountRange">Amount</label>
+            <input id="delayAmountRange" type="range" min="0" max="1" value="0" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="delayFeedbackRange">Feedback</label>
+            <input id="delayFeedbackRange" type="range" min="0" max="0.8" value="0.32" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="delayTimeSelect">Time</label>
+            <select id="delayTimeSelect">
+              <option value="1/8">1/8</option>
+              <option value="1/4">1/4</option>
+              <option value="1/8d">Dotted 1/8</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="fx-group">
+          <h3>Space (Reverb)</h3>
+          <div class="field">
+            <label for="reverbAmountRange">Amount</label>
+            <input id="reverbAmountRange" type="range" min="0" max="1" value="0" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="reverbSizeRange">Size</label>
+            <input id="reverbSizeRange" type="range" min="0" max="1" value="0.4" step="0.01" />
+          </div>
+        </div>
+      </div>
+
+      <canvas id="visualizer" class="visualizer" height="70" aria-label="Live audio visualizer"></canvas>
+    </div>
+  </details>
+
+  <!-- ============ PERFORMANCE MODE ============ -->
+  <details class="collapsible" id="perfPanel">
+    <summary>PERFORMANCE</summary>
+    <div class="panel-body">
+      <div class="perf-row">
+        <button id="btnMuteAll" class="btn-perf" type="button">MUTE ALL DRUMS</button>
+        <button id="btnBassCut" class="btn-perf" type="button">BASS CUT</button>
+        <button id="btnDrop" class="btn-perf" type="button">DROP</button>
+        <button id="btnBeatRepeat" class="btn-perf" type="button">BEAT REPEAT</button>
+        <div class="field">
+          <label for="filterSweepRange">Filter Sweep</label>
+          <input id="filterSweepRange" type="range" min="0" max="1" value="1" step="0.01" />
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- ============ HELP DIALOG ============ -->
+  <div id="helpDialog" class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
+    <div class="modal-card">
+      <button class="modal-close" id="closeHelp" type="button" aria-label="Close help">&times;</button>
+      <h2 id="helpTitle">How Beat Foundry works</h2>
+      <dl class="help-list">
+        <dt>Step Sequencer</dt><dd>Each row is an instrument. Click a square to make it play on that beat, 1 through 16.</dd>
+        <dt>BPM</dt><dd>Beats per minute — how fast the loop plays. Drag the slider while playing to hear it change instantly.</dd>
+        <dt>Swing</dt><dd>Delays every other step slightly for a laid-back, human feel. Doesn't change the overall speed.</dd>
+        <dt>Mute / Solo</dt><dd>Mute silences a track. Solo isolates it — while any track is soloed, only soloed tracks play.</dd>
+        <dt>Patterns</dt><dd>Four independent loops (A–D). Switching while playing waits for the bar to end, so it stays in time.</dd>
+        <dt>Bass Notes</dt><dd>Click a bass step to select it, then pick its note from the strip below the grid.</dd>
+        <dt>Effects</dt><dd>Delay repeats echoes in time with the beat. Space adds ambience. The Filter can sweep the whole mix darker or brighter.</dd>
+      </dl>
+      <h3>Keyboard shortcuts</h3>
+      <ul class="key-list">
+        <li><kbd>Space</kbd> Play / Stop</li>
+        <li><kbd>A</kbd> Kick</li>
+        <li><kbd>S</kbd> Snare</li>
+        <li><kbd>D</kbd> Closed Hat</li>
+        <li><kbd>F</kbd> Open Hat</li>
+        <li><kbd>G</kbd> Clap</li>
+        <li><kbd>H</kbd> Percussion</li>
+        <li><kbd>R</kbd> Randomize All</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ FIRST-RUN TUTORIAL ============ -->
+  <div id="tutorial" class="modal" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle" hidden>
+    <div class="modal-card">
+      <button class="modal-close" id="closeTutorial" type="button" aria-label="Close tutorial">&times;</button>
+      <h2 id="tutorialTitle">Welcome to Beat Foundry</h2>
+      <ol class="tutorial-steps">
+        <li>Press <strong>PLAY</strong>. A demo groove is already loaded.</li>
+        <li>Tap glowing squares on/off in the <strong>sequencer</strong> to change the beat.</li>
+        <li>Tap the <strong>drum pads</strong> below to play live over the loop.</li>
+        <li>Drag <strong>BPM</strong> to speed up or slow down.</li>
+        <li>Try a <strong>preset</strong> for an instant new vibe.</li>
+      </ol>
+      <label class="switch"><input type="checkbox" id="dontShowTutorial" /><span>Don't show this again</span></label>
+      <button id="tutorialStart" class="btn-primary" type="button">Let's go</button>
+    </div>
+  </div>
+
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -158,6 +158,30 @@ const projects = [
     description: "A puzzle-platformer about recording your own movement and coordinating with your echoes to solve each room.",
     status: "prototype",
     path: "./projects/echo-runner/"
+  },
+  {
+    title: "Orbital Bloom",
+    slug: "orbital-bloom",
+    category: "simulation",
+    description: "A gravity-particle sandbox — place attractors, spawn clouds of glowing particles, and watch gravity produce rings, spirals, and accretion discs.",
+    status: "prototype",
+    path: "./projects/orbital-bloom/"
+  },
+  {
+    title: "Beat Foundry",
+    slug: "beat-foundry",
+    category: "tool",
+    description: "A self-contained browser groovebox — sequence beats, play a bass line, tweak effects, and jam with no install or login.",
+    status: "prototype",
+    path: "./projects/beat-foundry/"
+  },
+  {
+    title: "Midnight Shopkeeper",
+    slug: "midnight-shopkeeper",
+    category: "game",
+    description: "A cozy, mysterious shop-management game that only opens after midnight.",
+    status: "prototype",
+    path: "./projects/midnight-shopkeeper/"
   }
 ];
 
