@@ -324,3 +324,112 @@ html, body {
   .timeline-wrap { width: 80%; }
   .panel { padding: 24px 20px; }
 }
+
+/* ------------------------------------------------------------------ touch controls */
+/* Only shown on touch-capable devices or narrow viewports (toggled via body.touch-mode
+   in js/touch.js) so desktop/mouse play stays uncluttered. */
+body.touch-mode .hud-controls-reminder { display: none; }
+body.touch-mode .hud-actions { display: none; }
+
+#touch-controls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.touch-btn {
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(10, 14, 20, 0.62);
+  border: 1.5px solid rgba(127, 227, 255, 0.4);
+  color: var(--pale);
+  font-family: inherit;
+  font-weight: 700;
+  box-shadow: 0 0 14px rgba(0,0,0,0.35);
+  transition: transform 0.08s ease, background 0.08s ease, box-shadow 0.08s ease, border-color 0.08s ease;
+}
+.touch-btn.pressed,
+.touch-btn:active {
+  transform: scale(0.92);
+  background: rgba(127, 227, 255, 0.22);
+  border-color: rgba(127, 227, 255, 0.9);
+  box-shadow: 0 0 20px rgba(127, 227, 255, 0.35);
+}
+
+.touch-topbar {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  right: calc(env(safe-area-inset-right, 0px) + 14px);
+  display: flex;
+  gap: 12px;
+  pointer-events: auto;
+}
+.touch-btn-small { width: 50px; height: 50px; font-size: 19px; }
+.touch-btn-record { color: var(--danger); border-color: rgba(255, 93, 122, 0.45); }
+.touch-btn-record.active {
+  background: rgba(255, 93, 122, 0.28);
+  border-color: var(--danger);
+  box-shadow: 0 0 18px rgba(255, 93, 122, 0.55);
+  animation: touchRecordPulse 1.1s ease-in-out infinite;
+}
+@keyframes touchRecordPulse {
+  0%, 100% { box-shadow: 0 0 14px rgba(255, 93, 122, 0.45); }
+  50% { box-shadow: 0 0 26px rgba(255, 93, 122, 0.8); }
+}
+
+.touch-dpad {
+  position: absolute;
+  left: calc(env(safe-area-inset-left, 0px) + 18px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
+  display: flex;
+  gap: 16px;
+  pointer-events: auto;
+}
+.touch-btn-move { width: 70px; height: 70px; font-size: 26px; }
+
+.touch-actions {
+  position: absolute;
+  right: calc(env(safe-area-inset-right, 0px) + 18px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
+  width: 150px;
+  height: 150px;
+  pointer-events: none;
+}
+.touch-btn-jump {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 88px;
+  height: 88px;
+  font-size: 14px;
+  letter-spacing: 1px;
+  color: var(--white);
+  background: rgba(127, 227, 255, 0.16);
+  border-color: rgba(127, 227, 255, 0.65);
+}
+.touch-btn-interact {
+  position: absolute;
+  right: 76px;
+  bottom: 76px;
+  width: 58px;
+  height: 58px;
+  font-size: 18px;
+  color: var(--violet);
+  border-color: rgba(183, 155, 255, 0.5);
+}
+
+@media (max-width: 480px) {
+  .touch-btn-move { width: 62px; height: 62px; font-size: 22px; }
+  .touch-btn-jump { width: 78px; height: 78px; }
+  .touch-btn-interact { width: 52px; height: 52px; right: 66px; bottom: 66px; }
+  .touch-actions { width: 130px; height: 130px; }
+  .touch-btn-small { width: 46px; height: 46px; font-size: 17px; }
+}

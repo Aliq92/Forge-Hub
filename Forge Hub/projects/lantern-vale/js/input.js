@@ -75,12 +75,14 @@ export function setupTouchControls(input) {
   if (!isTouch) return;
   const layer = document.getElementById('touch-controls');
   layer.classList.remove('hidden');
+  document.body.classList.add('touch-active');
 
+  const stickZone = document.getElementById('touch-stick-zone');
   const stick = document.getElementById('touch-stick');
   const stickKnob = document.getElementById('touch-stick-knob');
   let stickTouchId = null;
   let originX = 0, originY = 0;
-  const maxR = 44;
+  let maxR = 44;
 
   function stickStart(e) {
     const t = e.changedTouches[0];
@@ -88,6 +90,7 @@ export function setupTouchControls(input) {
     const rect = stick.getBoundingClientRect();
     originX = rect.left + rect.width / 2;
     originY = rect.top + rect.height / 2;
+    maxR = rect.width * 0.42;
     input.touch.move.active = true;
     e.preventDefault();
   }
@@ -115,10 +118,10 @@ export function setupTouchControls(input) {
       }
     }
   }
-  stick.addEventListener('touchstart', stickStart, { passive: false });
-  stick.addEventListener('touchmove', stickMove, { passive: false });
-  stick.addEventListener('touchend', stickEnd, { passive: false });
-  stick.addEventListener('touchcancel', stickEnd, { passive: false });
+  stickZone.addEventListener('touchstart', stickStart, { passive: false });
+  stickZone.addEventListener('touchmove', stickMove, { passive: false });
+  stickZone.addEventListener('touchend', stickEnd, { passive: false });
+  stickZone.addEventListener('touchcancel', stickEnd, { passive: false });
 
   const btnFlare = document.getElementById('touch-flare');
   const btnInteract = document.getElementById('touch-interact');

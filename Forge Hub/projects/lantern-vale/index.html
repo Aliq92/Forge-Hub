@@ -162,12 +162,14 @@
 
 <!-- ============ TOUCH CONTROLS ============ -->
 <div id="touch-controls" class="hidden">
-  <div id="touch-stick"><div id="touch-stick-knob"></div></div>
-  <div id="touch-actions">
-    <button id="touch-interact">E</button>
-    <button id="touch-flare">✧</button>
+  <div id="touch-stick-zone">
+    <div id="touch-stick"><div id="touch-stick-knob"></div></div>
   </div>
-  <button id="touch-pause">II</button>
+  <div id="touch-actions">
+    <button id="touch-interact"><span class="touch-btn-icon">✋</span><span class="touch-btn-label">Use</span></button>
+    <button id="touch-flare"><span class="touch-btn-icon">✧</span><span class="touch-btn-label">Flare</span></button>
+  </div>
+  <button id="touch-pause" aria-label="Pause">⏸</button>
 </div>
 
 <script type="module" src="js/main.js"></script>

@@ -47,6 +47,23 @@
     </div>
   </div>
 
+  <!-- ------------------------------------------------------------ touch controls (mobile/tablet) -->
+  <div id="touch-controls" class="hidden">
+    <div class="touch-topbar">
+      <button class="touch-btn touch-btn-small" id="tc-pause" aria-label="Pause">⏸</button>
+      <button class="touch-btn touch-btn-small" id="tc-reset" aria-label="Reset attempt">↺</button>
+      <button class="touch-btn touch-btn-small touch-btn-record" id="tc-record" aria-label="Record echo">●</button>
+    </div>
+    <div class="touch-dpad">
+      <button class="touch-btn touch-btn-move" id="tc-left" aria-label="Move left">◀</button>
+      <button class="touch-btn touch-btn-move" id="tc-right" aria-label="Move right">▶</button>
+    </div>
+    <div class="touch-actions">
+      <button class="touch-btn touch-btn-interact" id="tc-interact" aria-label="Interact">E</button>
+      <button class="touch-btn touch-btn-jump" id="tc-jump" aria-label="Jump">JUMP</button>
+    </div>
+  </div>
+
   <!-- ------------------------------------------------------------ title screen -->
   <section class="screen" id="screen-title">
     <div class="title-wrap">
@@ -83,6 +100,7 @@
         <li><strong>R</strong> — start / stop recording an echo</li>
         <li><strong>Q</strong> — reset the current attempt</li>
         <li><strong>ESC</strong> — pause</li>
+        <li><strong>Touch devices</strong> — on-screen buttons appear automatically</li>
       </ul>
       <p class="howto-copy">Record your own movement, then let it play back as a translucent echo. Reset yourself
         to the start and your echo will repeat everything you did — freeing you to be somewhere else. Hold plates,
@@ -137,7 +155,8 @@
       <nav class="menu-list">
         <button class="menu-btn primary" id="btn-resume">RESUME</button>
         <button class="menu-btn" id="btn-pause-restart">RESTART ROOM</button>
-        <button class="menu-btn" id="btn-pause-clear">CLEAR ECHOES</button>
+        <button class="menu-btn" id="btn-pause-clear-last">CLEAR LAST ECHO</button>
+        <button class="menu-btn" id="btn-pause-clear">CLEAR ALL ECHOES</button>
         <button class="menu-btn" id="btn-pause-settings">SETTINGS</button>
         <button class="menu-btn" id="btn-pause-levelselect">LEVEL SELECT</button>
         <button class="menu-btn" id="btn-pause-title">RETURN TO TITLE</button>

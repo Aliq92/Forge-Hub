@@ -51,6 +51,7 @@ export class UI {
 
     click('btn-resume', () => g.resume());
     click('btn-pause-restart', () => g.restartRoom());
+    click('btn-pause-clear-last', () => g.clearLastEcho());
     click('btn-pause-clear', () => { g.clearAllEchoes(); });
     click('btn-pause-settings', () => g.goSettings());
     click('btn-pause-levelselect', () => { g.quitToLevelSelect(); this._buildLevelGrid(); });

@@ -2,6 +2,7 @@
 import { Game } from './game.js';
 import { UI } from './ui.js';
 import { AudioEngine } from './audio.js';
+import { TouchControls } from './touch.js';
 import { renderRoom, renderRewindTransition, clear, drawBackgroundGrid, drawEcho, drawPlayer } from './renderer.js';
 
 const canvas = document.getElementById('game-canvas');
@@ -21,9 +22,10 @@ window.addEventListener('resize', fitCanvas);
 const game = new Game({ width: LOGICAL_W, height: LOGICAL_H });
 const audio = new AudioEngine(game.settings);
 const ui = new UI(game, audio);
+const touch = new TouchControls(game);
 
 // Exposed for debugging/support only — harmless in production, never referenced by game logic.
-window.echoRunnerDebug = { game, ui, audio, canvas, ctx };
+window.echoRunnerDebug = { game, ui, audio, touch, canvas, ctx };
 
 document.addEventListener('pointerdown', () => audio.resume(), { once: true });
 document.addEventListener('keydown', () => audio.resume(), { once: true });
@@ -84,6 +86,7 @@ function frame(now) {
 
   ui.syncScreens();
   ui.syncHUD();
+  touch.sync();
 
   fpsAccum += dt; fpsFrames++;
   if (fpsAccum >= 0.5) {

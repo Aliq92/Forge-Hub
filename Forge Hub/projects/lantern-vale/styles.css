@@ -285,42 +285,143 @@ h2 { color: var(--gold); letter-spacing: 2px; margin: 0 0 4px 0; }
 @keyframes toast-out { to { opacity: 0; transform: translateY(-8px); } }
 
 /* ============ TOUCH CONTROLS ============ */
+/* Sized generously (WCAG target minimum is 44px; these run well above it)
+   and padded against env(safe-area-inset-*) so notches/home indicators on
+   phones never eat into the tappable area. */
+:root {
+  --stick-size: clamp(120px, 32vw, 156px);
+  --stick-zone-size: clamp(168px, 44vw, 210px);
+  --btn-flare-size: clamp(74px, 20vw, 96px);
+  --btn-interact-size: clamp(62px, 16vw, 78px);
+  --btn-pause-size: clamp(44px, 11vw, 52px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+}
+
 #touch-controls {
   position: fixed; inset: 0; z-index: 15; pointer-events: none;
 }
-#touch-stick {
-  position: absolute; bottom: 30px; left: 30px;
-  width: 100px; height: 100px; border-radius: 50%;
-  background: rgba(255,255,255,0.06); border: 1px solid var(--ui-border);
+
+/* A generously oversized invisible hit-zone surrounds the visible stick so
+   players don't have to land a thumb precisely on the small ring to start
+   steering — only the inner ring is drawn, the whole zone is tappable. */
+#touch-stick-zone {
+  position: absolute;
+  left: calc(10px + var(--safe-l));
+  bottom: calc(14px + var(--safe-b));
+  width: var(--stick-zone-size); height: var(--stick-zone-size);
+  display: flex; align-items: flex-end; justify-content: flex-start;
   pointer-events: all;
+}
+#touch-stick {
+  width: var(--stick-size); height: var(--stick-size); border-radius: 50%;
+  background: rgba(255,255,255,0.07);
+  border: 2px solid var(--ui-border);
+  box-shadow: inset 0 0 24px rgba(0,0,0,0.35);
+  position: relative;
 }
 #touch-stick-knob {
   position: absolute; top: 50%; left: 50%;
-  width: 44px; height: 44px; margin: -22px 0 0 -22px;
-  border-radius: 50%; background: rgba(255,180,87,0.35);
-  border: 1px solid var(--amber);
+  width: clamp(52px, 15vw, 68px); height: clamp(52px, 15vw, 68px);
+  margin: calc(clamp(52px, 15vw, 68px) / -2) 0 0 calc(clamp(52px, 15vw, 68px) / -2);
+  border-radius: 50%; background: rgba(255,180,87,0.4);
+  border: 2px solid var(--amber);
+  box-shadow: 0 0 16px rgba(255,180,87,0.35);
+  transition: background 0.1s ease;
 }
+
+/* Primary (Flare) and secondary (Use) actions are staggered diagonally, the
+   way twin-action mobile games lay out their buttons: Flare anchors the
+   bottom-right corner, Use sits just up and to its left so a thumb resting
+   near the corner can roll between both without stretching. */
 #touch-actions {
-  position: absolute; bottom: 40px; right: 24px;
-  display: flex; gap: 14px;
+  position: absolute; inset: 0; pointer-events: none;
 }
 #touch-interact, #touch-flare {
-  width: 62px; height: 62px; border-radius: 50%;
-  background: rgba(255,255,255,0.08); border: 1px solid var(--ui-border);
-  color: #f0ead9; font-size: 18px; pointer-events: all;
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.09);
+  border: 2px solid var(--ui-border);
+  color: #f0ead9;
+  pointer-events: all;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px;
+  -webkit-tap-highlight-color: transparent;
 }
-#touch-flare { background: rgba(180,140,255,0.18); border-color: var(--violet); color: var(--violet); }
+#touch-interact:active, #touch-flare:active {
+  background: rgba(255,255,255,0.22);
+  transform: scale(0.94);
+}
+.touch-btn-icon { font-size: clamp(20px, 6vw, 28px); line-height: 1; }
+.touch-btn-label { font-size: clamp(9px, 2.6vw, 11px); letter-spacing: 1px; opacity: 0.85; text-transform: uppercase; }
+
+#touch-flare {
+  width: var(--btn-flare-size); height: var(--btn-flare-size);
+  right: calc(16px + var(--safe-r));
+  bottom: calc(18px + var(--safe-b));
+  background: rgba(180,140,255,0.2); border-color: var(--violet); color: var(--violet);
+}
+#touch-flare:active { background: rgba(180,140,255,0.38); }
+#touch-interact {
+  width: var(--btn-interact-size); height: var(--btn-interact-size);
+  right: calc(16px + var(--safe-r) + var(--btn-flare-size) * 0.75);
+  bottom: calc(18px + var(--safe-b) + var(--btn-flare-size) * 0.95);
+}
+
 #touch-pause {
-  position: absolute; top: 16px; right: 16px;
-  width: 36px; height: 36px; border-radius: 8px;
-  background: rgba(255,255,255,0.08); border: 1px solid var(--ui-border);
-  color: #f0ead9; pointer-events: all; font-size: 12px;
+  position: absolute;
+  top: calc(14px + var(--safe-t));
+  right: calc(14px + var(--safe-r));
+  width: var(--btn-pause-size); height: var(--btn-pause-size);
+  border-radius: 50%;
+  background: rgba(255,255,255,0.09); border: 2px solid var(--ui-border);
+  color: #f0ead9; pointer-events: all; font-size: clamp(16px, 4.5vw, 20px);
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+#touch-pause:active { background: rgba(255,255,255,0.22); transform: scale(0.94); }
+
+/* Once touch controls are showing, pull the HUD clear of the thumb zones:
+   minimap/compass ride above the joystick, the objective pill and firefly
+   flare gauge move up out from behind the action buttons. */
+body.touch-active #hud-bottom-left {
+  left: calc(10px + var(--safe-l));
+  bottom: calc(var(--stick-zone-size) + 12px + var(--safe-b));
+  transform: scale(0.86);
+  transform-origin: bottom left;
+}
+body.touch-active #hud-bottom-center {
+  bottom: calc(var(--stick-zone-size) + 12px + var(--safe-b));
+  max-width: min(52vw, 320px);
+}
+body.touch-active #objective-text {
+  white-space: normal;
+  font-size: 11px;
+}
+body.touch-active #hud-top-right {
+  right: calc(16px + var(--safe-r));
+  top: calc(64px + var(--safe-t));
+}
+body.touch-active #hud-top-left {
+  left: calc(16px + var(--safe-l));
+  top: calc(14px + var(--safe-t));
+}
+body.touch-active #prompt-interact {
+  bottom: calc(var(--stick-zone-size) + 54px + var(--safe-b));
 }
 
 @media (max-width: 720px) {
   .howto-grid { grid-template-columns: 1fr; }
   #lantern-bar-wrap { width: 130px; }
   #objective-text { font-size: 11px; }
+}
+
+@media (max-width: 480px) {
+  body.touch-active #lantern-bar-wrap { width: 118px; }
+  body.touch-active #firefly-counter { font-size: 12px; padding: 3px 8px; }
+  body.touch-active #flare-indicator { width: 96px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
