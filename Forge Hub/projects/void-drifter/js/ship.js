@@ -99,9 +99,13 @@ class Player {
     const fx = Math.cos(this.angle);
     const fy = Math.sin(this.angle);
 
-    const wantBoost = input.boost && this.energy > 0.5 && (input.thrust || !input.reverse);
+    // Boost alone (no thrust held) still produces a forward burst -- this matters most on
+    // mobile, where thrust and boost are separate buttons and players expect boost to just go.
+    const boostHeld = input.boost && this.energy > 0.5;
+    const effectiveThrust = input.thrust || (boostHeld && !input.reverse);
+    const wantBoost = boostHeld && !input.reverse;
 
-    if (input.thrust && this.fuel > 0) {
+    if (effectiveThrust && this.fuel > 0) {
       let power = this.thrustPower;
       this.thrusting = true;
       if (wantBoost) {

@@ -100,6 +100,8 @@ class Game {
   }
   resumeFromPause() { this.state = 'playing'; this.ui.hideAllScreens(); }
 
+  interact() { this._handleInteract(); }
+
   _handleInteract() {
     if (this.state !== 'playing' || !this.nearestStation) return;
     if (distance(this.player.x, this.player.y, this.nearestStation.x, this.nearestStation.y) > this.nearestStation.dockRadius) return;

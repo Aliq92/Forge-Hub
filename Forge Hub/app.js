@@ -126,6 +126,14 @@ const projects = [
     description: "A minimalist space survival and exploration arcade game — drift, dodge, collect, upgrade, survive.",
     status: "prototype",
     path: "./projects/void-drifter/"
+  },
+  {
+    title: "Starfall Garden",
+    slug: "starfall-garden",
+    category: "game",
+    description: "A peaceful survival-and-restoration game on a tiny drifting world — tend plants and weather meteor storms.",
+    status: "prototype",
+    path: "./projects/starfall-garden/"
   }
 ];
 

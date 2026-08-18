@@ -49,6 +49,7 @@ class UIManager {
     this.gameOverTitle = id('gameOverTitle');
 
     this.touchControls = id('touchControls');
+    this.touchDock = id('touchDock');
     this.fpsCounter = id('fpsCounter');
 
     this.minimapCanvas = id('minimapCanvas');
@@ -126,6 +127,7 @@ class UIManager {
   setInteractHint(show, text) {
     this.interactHint.classList.toggle('hidden', !show);
     if (text) this.interactHint.innerHTML = text;
+    this.touchDock.classList.toggle('hidden', !show);
   }
 
   showUpgradeChoices(choices, onPick) {

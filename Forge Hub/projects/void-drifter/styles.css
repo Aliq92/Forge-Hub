@@ -443,44 +443,81 @@ html, body {
 }
 .touch-left, .touch-right {
   position: absolute;
-  bottom: 24px;
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
   display: flex;
-  gap: 12px;
+  gap: 16px;
   align-items: flex-end;
 }
-.touch-left { left: 20px; }
-.touch-right { right: 20px; }
+.touch-left { left: calc(16px + env(safe-area-inset-left, 0px)); }
+.touch-right { right: calc(16px + env(safe-area-inset-right, 0px)); }
 .touch-btn {
   pointer-events: all;
-  width: 64px;
-  height: 64px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
-  background: rgba(20, 26, 38, 0.55);
-  border: 1px solid var(--panel-border);
+  background: rgba(20, 26, 38, 0.62);
+  border: 2px solid var(--panel-border);
   color: var(--accent);
-  font-size: 22px;
+  font-size: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.35);
 }
-.touch-btn:active { background: rgba(100,224,255,0.25); }
-.touch-thrust { width: 76px; height: 76px; font-size: 26px; }
+.touch-btn:active { background: rgba(100,224,255,0.3); border-color: var(--accent); transform: scale(0.95); }
+.touch-rotate { width: 72px; height: 72px; font-size: 26px; }
+.touch-thrust { width: 104px; height: 104px; font-size: 36px; }
 .touch-boost {
-  font-size: 11px;
+  width: 88px;
+  height: 88px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 1px;
   color: var(--accent-warn);
   border-color: var(--accent-warn);
+  background: rgba(50, 32, 10, 0.5);
 }
+.touch-boost:active { background: rgba(255,179,71,0.3); }
 .touch-pause {
   position: absolute;
-  top: 14px;
+  top: calc(14px + env(safe-area-inset-top, 0px));
   right: 14px;
-  width: 40px;
-  height: 40px;
-  font-size: 14px;
+  width: 46px;
+  height: 46px;
+  font-size: 16px;
   pointer-events: all;
+}
+.touch-dock-btn {
+  pointer-events: all;
+  position: absolute;
+  left: 50%;
+  bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  padding: 14px 34px;
+  border-radius: 30px;
+  background: rgba(100,224,255,0.22);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 0 24px rgba(100,224,255,0.35);
+  animation: dockPulse 1.4s infinite;
+}
+@keyframes dockPulse {
+  0%, 100% { box-shadow: 0 0 14px rgba(100,224,255,0.3); }
+  50% { box-shadow: 0 0 28px rgba(100,224,255,0.6); }
+}
+
+@media (max-width: 420px) {
+  .touch-btn { width: 76px; height: 76px; }
+  .touch-rotate { width: 64px; height: 64px; font-size: 22px; }
+  .touch-thrust { width: 92px; height: 92px; font-size: 32px; }
+  .touch-boost { width: 78px; height: 78px; font-size: 13px; }
+  .touch-pause { width: 46px; height: 46px; font-size: 16px; }
 }
 
 .fps-counter {
@@ -499,7 +536,10 @@ html, body {
 /* ---------------- Responsive ---------------- */
 @media (max-width: 760px) {
   .hud-top { right: 14px; flex-direction: column; gap: 8px; }
-  #minimapCanvas { width: 100px; height: 100px; top: auto; bottom: 110px; right: 10px; }
+  /* keep the minimap in the top-right corner (away from the bottom touch controls) and
+     push the pause button below it so the two never overlap */
+  #minimapCanvas { width: 92px; height: 92px; top: calc(14px + env(safe-area-inset-top, 0px)); right: calc(10px + env(safe-area-inset-right, 0px)); }
+  .touch-pause { top: calc(14px + 92px + 12px + env(safe-area-inset-top, 0px)); }
   .hud-stats { flex-wrap: wrap; gap: 10px 14px; }
   .tutorial-grid { grid-template-columns: 1fr; }
   .upgrade-choices { grid-template-columns: 1fr; }

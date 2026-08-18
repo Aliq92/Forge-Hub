@@ -62,8 +62,12 @@
   document.getElementById('btnRetry').addEventListener('click', () => game.restartRun());
   document.getElementById('btnGoToTitle').addEventListener('click', () => game.returnToTitle());
 
-  // ---- Touch pause button ----
+  // ---- Touch pause / dock buttons ----
   document.getElementById('touchPause').addEventListener('click', () => game._handleEscape());
+  const touchDockBtn = document.getElementById('touchDock');
+  const dockAction = (e) => { e.preventDefault(); game.interact(); };
+  touchDockBtn.addEventListener('touchstart', dockAction, { passive: false });
+  touchDockBtn.addEventListener('click', dockAction);
 
   // apply persisted settings to audio engine once it inits, and on load
   const origInit = game.sound.init.bind(game.sound);

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Starfall Garden</title>
+<meta name="description" content="A peaceful survival-and-restoration game on a tiny drifting world." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%230a0e2a'/%3E%3Ccircle cx='50' cy='50' r='30' fill='%2340e0d0'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+  <canvas id="game-canvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-top-left">
+      <div class="bar-row">
+        <span class="bar-label">HEALTH</span>
+        <div class="bar bar-health"><div class="bar-fill" id="bar-health"></div></div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">ENERGY</span>
+        <div class="bar bar-energy"><div class="bar-fill" id="bar-energy"></div></div>
+      </div>
+    </div>
+    <div class="hud-top-center">
+      <div id="phase-label" class="phase-label">CALM</div>
+      <div id="phase-timer" class="phase-timer">--</div>
+    </div>
+    <div class="hud-top-right">
+      <div class="stat-line">✦ <span id="stat-fragments">0</span></div>
+      <div class="stat-line">🌱 <span id="stat-plants">0</span></div>
+      <div class="stat-line planet-health-line">PLANET <span id="stat-health">0</span>%</div>
+      <div class="mini-bar"><div class="mini-bar-fill" id="bar-planet"></div></div>
+    </div>
+    <div id="plant-tray" class="plant-tray"></div>
+    <div id="warning-banner" class="warning-banner hidden"></div>
+    <button id="btn-pause" class="icon-btn hud-pause-btn" aria-label="Pause">❚❚</button>
+  </div>
+
+  <!-- Mobile controls -->
+  <div id="mobile-controls" class="hidden">
+    <div id="joystick-zone" class="joystick-zone">
+      <div id="joystick-base" class="joystick-base">
+        <div id="joystick-stick" class="joystick-stick"></div>
+      </div>
+    </div>
+    <div class="mobile-action-buttons">
+      <button id="btn-mobile-interact" class="round-btn">E</button>
+      <button id="btn-mobile-dash" class="round-btn dash-btn">DASH</button>
+    </div>
+  </div>
+
+  <!-- Title Screen -->
+  <div id="screen-title" class="screen">
+    <div class="stars-decor"></div>
+    <div class="title-planet-wrap"><canvas id="title-canvas"></canvas></div>
+    <h1 class="game-title">STARFALL <span>GARDEN</span></h1>
+    <p class="game-subtitle">restore a dying world, one light at a time</p>
+    <div class="menu-col">
+      <button class="menu-btn primary" id="btn-begin">BEGIN</button>
+      <button class="menu-btn" id="btn-endless" style="display:none">ENDLESS MODE</button>
+      <button class="menu-btn" id="btn-howto">HOW TO PLAY</button>
+      <button class="menu-btn" id="btn-settings">SETTINGS</button>
+    </div>
+    <div class="difficulty-row">
+      <span>DIFFICULTY</span>
+      <button class="chip-btn active" data-diff="normal">NORMAL</button>
+      <button class="chip-btn" data-diff="hard">HARD</button>
+    </div>
+    <div class="best-stats" id="best-stats"></div>
+  </div>
+
+  <!-- How To Play -->
+  <div id="screen-howto" class="screen hidden">
+    <div class="panel">
+      <h2>HOW TO PLAY</h2>
+      <div class="howto-grid">
+        <div class="howto-item"><div class="howto-icon">⬆⬅⬇➡</div><div><b>Move</b><br>WASD / Arrow Keys</div></div>
+        <div class="howto-item"><div class="howto-icon">✦</div><div><b>Collect</b><br>Walk near falling star fragments</div></div>
+        <div class="howto-item"><div class="howto-icon">🌑→🌕</div><div><b>Restore</b><br>Press E on dead ground to bring it back to life</div></div>
+        <div class="howto-item"><div class="howto-icon">🌱</div><div><b>Plant</b><br>Pick 1-4, press E on restored ground</div></div>
+        <div class="howto-item"><div class="howto-icon">☄</div><div><b>Survive</b><br>Watch for warning rings, dodge meteor impacts</div></div>
+        <div class="howto-item"><div class="howto-icon">⚡</div><div><b>Dash</b><br>Space to burst away from danger</div></div>
+        <div class="howto-item"><div class="howto-icon">100%</div><div><b>Goal</b><br>Restore the whole planet to full health</div></div>
+      </div>
+      <button class="menu-btn primary" id="btn-howto-close">GOT IT</button>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div id="screen-settings" class="screen hidden">
+    <div class="panel">
+      <h2>SETTINGS</h2>
+      <div class="settings-list">
+        <label class="setting-row">Music Volume <input type="range" id="set-music" min="0" max="100" value="60"></label>
+        <label class="setting-row">Sound Volume <input type="range" id="set-sfx" min="0" max="100" value="70"></label>
+        <label class="setting-row">Screen Shake <input type="checkbox" id="set-shake" checked></label>
+        <label class="setting-row">Particle Density
+          <select id="set-particles"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select>
+        </label>
+        <label class="setting-row">Reduced Motion <input type="checkbox" id="set-motion"></label>
+        <label class="setting-row">Show FPS <input type="checkbox" id="set-fps"></label>
+      </div>
+      <button class="menu-btn primary" id="btn-settings-close">DONE</button>
+    </div>
+  </div>
+
+  <!-- Pause -->
+  <div id="screen-pause" class="screen hidden">
+    <div class="panel">
+      <h2>PAUSED</h2>
+      <div class="menu-col">
+        <button class="menu-btn primary" id="btn-resume">RESUME</button>
+        <button class="menu-btn" id="btn-pause-restart">RESTART</button>
+        <button class="menu-btn" id="btn-pause-settings">SETTINGS</button>
+        <button class="menu-btn" id="btn-pause-howto">HOW TO PLAY</button>
+        <button class="menu-btn" id="btn-pause-title">RETURN TO TITLE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upgrade Choice -->
+  <div id="screen-upgrade" class="screen hidden">
+    <div class="panel upgrade-panel">
+      <h2>PLANET MILESTONE</h2>
+      <p class="upgrade-sub">Choose one blessing for your keeper</p>
+      <div id="upgrade-cards" class="upgrade-cards"></div>
+    </div>
+  </div>
+
+  <!-- Game Over -->
+  <div id="screen-gameover" class="screen hidden">
+    <div class="panel">
+      <h2 class="gameover-title">THE KEEPER FALLS</h2>
+      <div id="gameover-stats" class="stats-list"></div>
+      <div class="menu-col">
+        <button class="menu-btn primary" id="btn-retry">RETRY</button>
+        <button class="menu-btn" id="btn-gameover-title">RETURN TO TITLE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Victory -->
+  <div id="screen-victory" class="screen hidden">
+    <div class="panel">
+      <h2 class="victory-title">THE GARDEN LIVES</h2>
+      <div id="victory-stats" class="stats-list"></div>
+      <div class="menu-col">
+        <button class="menu-btn primary" id="btn-endless-continue">CONTINUE — ENDLESS</button>
+        <button class="menu-btn" id="btn-victory-retry">NEW RUN</button>
+        <button class="menu-btn" id="btn-victory-title">RETURN TO TITLE</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="fps-counter" class="fps-counter hidden">0 FPS</div>
+</div>
+
+<script src="js/constants.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/particles.js"></script>
+<script src="js/world.js"></script>
+<script src="js/player.js"></script>
+<script src="js/resources.js"></script>
+<script src="js/plants.js"></script>
+<script src="js/meteors.js"></script>
+<script src="js/upgrades.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/input.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
