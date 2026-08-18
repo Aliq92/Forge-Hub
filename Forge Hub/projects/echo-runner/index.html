@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Echo Runner</title>
+<meta name="description" content="A puzzle-platformer about recording your own movement and coordinating with your echoes." />
+<link rel="stylesheet" href="styles.css" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%237fe3ff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%237fe3ff'/%3E%3C/svg%3E" />
+</head>
+<body>
+<div id="app">
+  <canvas id="game-canvas" width="960" height="540"></canvas>
+
+  <!-- ------------------------------------------------------------ gameplay HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="room-label">
+        <span id="hud-chapter"></span>
+        <span id="hud-room"></span>
+      </div>
+      <div class="hud-echo-count" id="hud-echo-count"></div>
+    </div>
+
+    <div class="timeline-wrap" id="timeline-wrap">
+      <div class="timeline-label">
+        <span>RECORDING</span>
+        <span id="timeline-time">0.0s / 10s</span>
+      </div>
+      <div class="timeline-bar">
+        <div class="timeline-fill" id="timeline-fill"></div>
+        <div class="timeline-markers" id="timeline-markers"></div>
+      </div>
+    </div>
+
+    <div id="hint-banner" class="hint-banner"></div>
+    <div id="toast" class="toast"></div>
+
+    <div class="hud-controls-reminder">
+      A/D MOVE &nbsp;·&nbsp; SPACE JUMP &nbsp;·&nbsp; E INTERACT &nbsp;·&nbsp; R RECORD &nbsp;·&nbsp; Q RESET &nbsp;·&nbsp; ESC PAUSE
+    </div>
+
+    <div class="hud-actions">
+      <button class="mini-btn" id="btn-clear-last" title="Clear Last Echo">CLEAR LAST ECHO</button>
+      <button class="mini-btn" id="btn-clear-all" title="Clear All Echoes">CLEAR ALL ECHOES</button>
+      <button class="mini-btn" id="btn-restart-room" title="Restart Room">RESTART ROOM</button>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------ title screen -->
+  <section class="screen" id="screen-title">
+    <div class="title-wrap">
+      <h1 class="game-title">ECHO RUNNER</h1>
+      <p class="game-subtitle">memory does not disappear. it repeats.</p>
+      <nav class="menu-list">
+        <button class="menu-btn primary" id="btn-begin">BEGIN</button>
+        <button class="menu-btn" id="btn-level-select">LEVEL SELECT</button>
+        <button class="menu-btn" id="btn-how-to-play">HOW TO PLAY</button>
+        <button class="menu-btn" id="btn-settings">SETTINGS</button>
+      </nav>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ level select -->
+  <section class="screen hidden" id="screen-level-select">
+    <div class="panel wide">
+      <h2 class="panel-title">LEVEL SELECT</h2>
+      <div id="level-grid" class="level-grid"></div>
+      <div class="panel-actions">
+        <button class="menu-btn" id="btn-ls-back">BACK</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ how to play -->
+  <section class="screen hidden" id="screen-how-to-play">
+    <div class="panel">
+      <h2 class="panel-title">HOW TO PLAY</h2>
+      <ul class="howto-list">
+        <li><strong>A / D or ←/→</strong> — move</li>
+        <li><strong>SPACE / W / ↑</strong> — jump</li>
+        <li><strong>E</strong> — interact with switches</li>
+        <li><strong>R</strong> — start / stop recording an echo</li>
+        <li><strong>Q</strong> — reset the current attempt</li>
+        <li><strong>ESC</strong> — pause</li>
+      </ul>
+      <p class="howto-copy">Record your own movement, then let it play back as a translucent echo. Reset yourself
+        to the start and your echo will repeat everything you did — freeing you to be somewhere else. Hold plates,
+        flip switches, and cross doors together with your past selves. Every room has a clear solution: the
+        challenge is sequencing, not memorizing hidden rules.</p>
+      <div class="panel-actions">
+        <button class="menu-btn" id="btn-htp-back">BACK</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ settings -->
+  <section class="screen hidden" id="screen-settings">
+    <div class="panel">
+      <h2 class="panel-title">SETTINGS</h2>
+      <div class="settings-list">
+        <label class="setting-row">
+          <span>Music Volume</span>
+          <input type="range" id="set-music" min="0" max="1" step="0.05" />
+        </label>
+        <label class="setting-row">
+          <span>Sound Volume</span>
+          <input type="range" id="set-sfx" min="0" max="1" step="0.05" />
+        </label>
+        <label class="setting-row">
+          <span>Screen Shake</span>
+          <input type="checkbox" id="set-shake" />
+        </label>
+        <label class="setting-row">
+          <span>Echo Trail Intensity</span>
+          <input type="range" id="set-trail" min="0" max="1" step="0.1" />
+        </label>
+        <label class="setting-row">
+          <span>Reduced Motion</span>
+          <input type="checkbox" id="set-reduced" />
+        </label>
+        <label class="setting-row">
+          <span>Show FPS</span>
+          <input type="checkbox" id="set-fps" />
+        </label>
+      </div>
+      <div class="panel-actions">
+        <button class="menu-btn" id="btn-set-back">BACK</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ pause -->
+  <section class="screen hidden" id="screen-pause">
+    <div class="panel">
+      <h2 class="panel-title">PAUSED</h2>
+      <nav class="menu-list">
+        <button class="menu-btn primary" id="btn-resume">RESUME</button>
+        <button class="menu-btn" id="btn-pause-restart">RESTART ROOM</button>
+        <button class="menu-btn" id="btn-pause-clear">CLEAR ECHOES</button>
+        <button class="menu-btn" id="btn-pause-settings">SETTINGS</button>
+        <button class="menu-btn" id="btn-pause-levelselect">LEVEL SELECT</button>
+        <button class="menu-btn" id="btn-pause-title">RETURN TO TITLE</button>
+      </nav>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ room complete -->
+  <section class="screen hidden" id="screen-room-complete">
+    <div class="panel">
+      <h2 class="panel-title" id="rc-title">COMPLETED</h2>
+      <div class="rc-stats" id="rc-stats"></div>
+      <div id="rc-fragment" class="rc-fragment"></div>
+      <nav class="menu-list">
+        <button class="menu-btn primary" id="btn-rc-next">NEXT ROOM</button>
+        <button class="menu-btn" id="btn-rc-levelselect">LEVEL SELECT</button>
+      </nav>
+    </div>
+  </section>
+
+  <div id="fps-counter" class="fps-counter hidden">0 FPS</div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

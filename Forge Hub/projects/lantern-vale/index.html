@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Lantern Vale</title>
+<meta name="description" content="Lantern Vale — an atmospheric exploration game of light and shadow." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%23ffb457'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+
+<div id="fps-counter" class="hidden">0 FPS</div>
+
+<!-- ============ HUD (in-game) ============ -->
+<div id="hud" class="hidden">
+  <div id="hud-top-left">
+    <div id="health-hearts"></div>
+    <div id="lantern-bar-wrap">
+      <div class="bar-label">LANTERN</div>
+      <div id="lantern-bar-track"><div id="lantern-bar-fill"></div></div>
+    </div>
+  </div>
+
+  <div id="hud-top-right">
+    <div id="firefly-counter"><span id="firefly-icon">✦</span><span id="firefly-count">0</span></div>
+    <div id="flare-indicator">
+      <div class="bar-label">FLARE</div>
+      <div id="flare-bar-track"><div id="flare-bar-fill"></div></div>
+    </div>
+  </div>
+
+  <div id="hud-bottom-left">
+    <canvas id="minimap-canvas" width="176" height="176"></canvas>
+    <div id="compass"><div id="compass-needle"></div></div>
+  </div>
+
+  <div id="hud-bottom-center">
+    <div id="objective-text">Explore the valley. Find the shrines.</div>
+  </div>
+
+  <div id="low-energy-warning" class="hidden">THE LIGHT IS FADING</div>
+  <div id="prompt-interact" class="hidden">Press <span class="key">E</span> to interact</div>
+</div>
+
+<!-- ============ TITLE SCREEN ============ -->
+<div id="screen-title" class="screen">
+  <canvas id="title-bg"></canvas>
+  <div class="screen-content">
+    <h1 class="game-title">LANTERN VALE</h1>
+    <p class="game-subtitle">a light carried through the dark</p>
+    <div class="menu-list">
+      <button class="menu-btn" data-action="begin">Begin Journey</button>
+      <button class="menu-btn" data-action="howto">How to Play</button>
+      <button class="menu-btn" data-action="settings">Settings</button>
+      <button class="menu-btn secondary" data-action="modes">Game Mode</button>
+    </div>
+    <div id="best-journey" class="best-journey"></div>
+  </div>
+</div>
+
+<!-- ============ MODE SELECT ============ -->
+<div id="screen-modes" class="screen hidden">
+  <div class="screen-content narrow">
+    <h2>Choose Your Journey</h2>
+    <div class="menu-list">
+      <button class="menu-btn" data-mode="journey">Journey <span class="menu-sub">Activate the Heart Lantern</span></button>
+      <button class="menu-btn" data-mode="peaceful">Peaceful Vale <span class="menu-sub">Reduced shadow danger</span></button>
+      <button class="menu-btn" data-mode="deepnight">Deep Night <span class="menu-sub">Faster drain, bolder shadows</span></button>
+      <button class="menu-btn" data-mode="endless">Endless Wander <span class="menu-sub">No objective — just explore</span></button>
+    </div>
+    <button class="menu-btn back" data-action="back-title">Back</button>
+  </div>
+</div>
+
+<!-- ============ HOW TO PLAY ============ -->
+<div id="screen-howto" class="screen hidden">
+  <div class="screen-content">
+    <h2>How to Play</h2>
+    <div class="howto-grid">
+      <div class="howto-item"><span class="howto-key">WASD / Arrows</span>Move through the valley</div>
+      <div class="howto-item"><span class="howto-key">✦</span>Collect fireflies to restore lantern energy</div>
+      <div class="howto-item"><span class="howto-key">Lantern</span>Your only light — it drains as you explore</div>
+      <div class="howto-item"><span class="howto-key">Shadows</span>Avoid them; they press in when your light is weak</div>
+      <div class="howto-item"><span class="howto-key">Space</span>Flare — a burst that repels shadows</div>
+      <div class="howto-item"><span class="howto-key">E</span>Activate shrines, drink from ember reeds</div>
+      <div class="howto-item"><span class="howto-key">Goal</span>Activate 5 shrines, then find the Heart Lantern</div>
+    </div>
+    <button class="menu-btn" data-action="back-title">Got it</button>
+  </div>
+</div>
+
+<!-- ============ SETTINGS ============ -->
+<div id="screen-settings" class="screen hidden">
+  <div class="screen-content">
+    <h2>Settings</h2>
+    <div class="settings-grid">
+      <label>Music Volume<input type="range" id="set-music" min="0" max="1" step="0.05"></label>
+      <label>Sound Volume<input type="range" id="set-sound" min="0" max="1" step="0.05"></label>
+      <label>Fog Density<input type="range" id="set-fog" min="0" max="1" step="0.1"></label>
+      <label>Particle Density<input type="range" id="set-particles" min="0.2" max="1.5" step="0.1"></label>
+      <label class="checkbox-row"><input type="checkbox" id="set-shake">Screen Shake</label>
+      <label class="checkbox-row"><input type="checkbox" id="set-reduced">Reduced Motion</label>
+      <label class="checkbox-row"><input type="checkbox" id="set-fps">Show FPS</label>
+      <label class="checkbox-row"><input type="checkbox" id="set-flicker">Lantern Flicker</label>
+    </div>
+    <button class="menu-btn" data-action="back-prev">Done</button>
+  </div>
+</div>
+
+<!-- ============ PAUSE MENU ============ -->
+<div id="screen-pause" class="screen hidden">
+  <div class="screen-content narrow">
+    <h2>Paused</h2>
+    <div class="menu-list">
+      <button class="menu-btn" data-action="resume">Resume</button>
+      <button class="menu-btn" data-action="restart">Restart Journey</button>
+      <button class="menu-btn" data-action="pause-settings">Settings</button>
+      <button class="menu-btn" data-action="pause-howto">How to Play</button>
+      <button class="menu-btn" data-action="title">Return to Title</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ UPGRADE CHOICE ============ -->
+<div id="screen-upgrade" class="screen hidden">
+  <div class="screen-content wide">
+    <h2 id="upgrade-title">Shrine Awakened</h2>
+    <p class="upgrade-sub">Choose a blessing to carry with you.</p>
+    <div id="upgrade-cards" class="upgrade-cards"></div>
+  </div>
+</div>
+
+<!-- ============ VICTORY ============ -->
+<div id="screen-victory" class="screen hidden">
+  <div class="screen-content">
+    <h2 class="victory-title">THE VALE REMEMBERS THE LIGHT</h2>
+    <div id="victory-stats" class="stats-grid"></div>
+    <div class="menu-list">
+      <button class="menu-btn" data-action="continue-exploring">Continue Exploring</button>
+      <button class="menu-btn" data-action="title">Return to Title</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ GAME OVER ============ -->
+<div id="screen-gameover" class="screen hidden">
+  <div class="screen-content">
+    <h2 class="gameover-title">THE LIGHT FADES</h2>
+    <div id="gameover-stats" class="stats-grid"></div>
+    <div class="menu-list">
+      <button class="menu-btn" data-action="retry">Retry</button>
+      <button class="menu-btn" data-action="title">Return to Title</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TOAST (achievements / events) ============ -->
+<div id="toast-container"></div>
+
+<!-- ============ TOUCH CONTROLS ============ -->
+<div id="touch-controls" class="hidden">
+  <div id="touch-stick"><div id="touch-stick-knob"></div></div>
+  <div id="touch-actions">
+    <button id="touch-interact">E</button>
+    <button id="touch-flare">✧</button>
+  </div>
+  <button id="touch-pause">II</button>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

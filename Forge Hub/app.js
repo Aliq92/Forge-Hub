@@ -142,6 +142,22 @@ const projects = [
     description: "Guide a fragile comet through a procedural solar system using gravity, momentum, and skill.",
     status: "prototype",
     path: "./projects/comet-shepherd/"
+  },
+  {
+    title: "Lantern Vale",
+    slug: "lantern-vale",
+    category: "game",
+    description: "Carry a fading lantern through a shadowed valley, gather fireflies, and awaken shrines to find the Heart Lantern.",
+    status: "prototype",
+    path: "./projects/lantern-vale/"
+  },
+  {
+    title: "Echo Runner",
+    slug: "echo-runner",
+    category: "game",
+    description: "A puzzle-platformer about recording your own movement and coordinating with your echoes to solve each room.",
+    status: "prototype",
+    path: "./projects/echo-runner/"
   }
 ];
 
