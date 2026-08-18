@@ -22,24 +22,44 @@ html, body {
   background: var(--bg);
   color: var(--white);
   overflow: hidden;
+  overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
 }
 
 #app {
   position: relative;
-  width: 100vw;
+  width: 100%;
+  /* dvh/svh account for mobile browser chrome (address bar) resizing the visible
+     viewport; each line only takes effect if the unit is supported, falling back
+     to the previous one otherwise. */
   height: 100vh;
+  height: 100svh;
+  height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   background: radial-gradient(ellipse at 50% 20%, #0c1119 0%, #05070a 70%);
+}
+
+/* The letterboxed 16:9 game area. HUD/touch-controls are children of this, not
+   of #app, so their edges align to the visible game view rather than to any
+   letterbox bars left over on devices with a non-16:9 screen. */
+#game-stage {
+  position: relative;
+  max-width: 1400px;
+  width: min(100vw, calc(100vh * 16 / 9));
+  width: min(100vw, calc(100svh * 16 / 9));
+  width: min(100vw, calc(100dvh * 16 / 9));
+  height: min(100vh, calc(100vw * 9 / 16));
+  height: min(100svh, calc(100vw * 9 / 16));
+  height: min(100dvh, calc(100vw * 9 / 16));
 }
 
 #game-canvas {
   display: block;
-  width: min(100vw, 177.77vh);
-  height: min(100vh, 56.25vw);
-  max-width: 1400px;
+  width: 100%;
+  height: 100%;
   background: #05070a;
   image-rendering: -webkit-optimize-contrast;
   box-shadow: 0 0 80px rgba(90, 160, 220, 0.06);
@@ -52,44 +72,57 @@ html, body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  padding: 18px 22px;
+  padding: calc(env(safe-area-inset-top, 0px) + clamp(10px, 2.2vh, 18px))
+           calc(env(safe-area-inset-right, 0px) + clamp(12px, 2.5vw, 22px))
+           calc(env(safe-area-inset-bottom, 0px) + clamp(10px, 2.2vh, 18px))
+           calc(env(safe-area-inset-left, 0px) + clamp(12px, 2.5vw, 22px));
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  gap: clamp(6px, 1.5vh, 14px);
 }
 
 .hud-top {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
   font-weight: 600;
   letter-spacing: 1.5px;
 }
 
-.room-label { display: flex; flex-direction: column; gap: 2px; text-shadow: 0 0 12px rgba(120,190,255,0.35); }
-.room-label span:first-child { font-size: 11px; color: var(--cyan); opacity: 0.85; }
-.room-label span:last-child { font-size: 17px; color: var(--white); }
+.room-label { display: flex; flex-direction: column; gap: 2px; text-shadow: 0 0 12px rgba(120,190,255,0.35); min-width: 0; }
+.room-label span:first-child { font-size: clamp(9px, 1.6vh, 11px); color: var(--cyan); opacity: 0.85; }
+.room-label span:last-child {
+  font-size: clamp(13px, 2.6vh, 17px);
+  color: var(--white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 52vw;
+}
 
 .hud-echo-count {
-  font-size: 13px;
+  font-size: clamp(10.5px, 1.8vh, 13px);
   color: var(--pale);
   background: rgba(10, 14, 20, 0.55);
   border: 1px solid var(--edge);
-  padding: 6px 12px;
+  padding: clamp(4px, 0.8vh, 6px) clamp(8px, 1.6vw, 12px);
   border-radius: 4px;
   letter-spacing: 1px;
+  white-space: nowrap;
 }
 
 .timeline-wrap {
   align-self: center;
   width: min(520px, 60%);
-  margin-top: -40px;
 }
 
 .timeline-label {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: clamp(9px, 1.4vh, 11px);
   color: var(--text-dim);
   letter-spacing: 1.5px;
   margin-bottom: 4px;
@@ -121,36 +154,39 @@ html, body {
 
 .hint-banner {
   align-self: center;
-  margin-top: 10px;
-  font-size: 15px;
+  font-size: clamp(11px, 2.2vh, 15px);
   letter-spacing: 1.5px;
   font-weight: 600;
   color: var(--white);
   background: rgba(10, 14, 20, 0.68);
   border: 1px solid rgba(127,227,255,0.35);
-  padding: 8px 20px;
+  padding: clamp(5px, 1.2vh, 8px) clamp(12px, 2.5vw, 20px);
   border-radius: 4px;
   opacity: 0;
   transition: opacity 0.3s ease;
   text-align: center;
-  max-width: 70%;
+  max-width: min(85vw, 70%);
 }
 .hint-banner.visible { opacity: 1; }
 
 .toast {
   position: absolute;
-  top: 90px;
+  top: clamp(46px, 16%, 90px);
   left: 50%;
   transform: translateX(-50%);
-  font-size: 13px;
+  font-size: clamp(11px, 1.8vh, 13px);
   letter-spacing: 1px;
   color: var(--danger);
   background: rgba(20, 10, 14, 0.75);
   border: 1px solid rgba(255,93,122,0.4);
-  padding: 7px 16px;
+  padding: clamp(5px, 1vh, 7px) clamp(10px, 2vw, 16px);
   border-radius: 4px;
   opacity: 0;
   transition: opacity 0.25s ease;
+  white-space: nowrap;
+  max-width: 90vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .toast.visible { opacity: 1; }
 
@@ -165,21 +201,24 @@ html, body {
 .hud-actions {
   align-self: flex-end;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
   pointer-events: auto;
 }
 
 .mini-btn {
   font-family: inherit;
-  font-size: 10.5px;
+  font-size: clamp(9.5px, 1.6vh, 10.5px);
   letter-spacing: 1px;
   color: var(--text-dim);
   background: rgba(10, 14, 20, 0.6);
   border: 1px solid var(--edge);
-  padding: 7px 10px;
+  padding: clamp(6px, 1.2vh, 7px) clamp(8px, 1.6vw, 10px);
   border-radius: 4px;
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
 }
 .mini-btn:hover { color: var(--cyan); border-color: rgba(127,227,255,0.5); }
 
@@ -239,6 +278,8 @@ html, body {
   min-width: 340px;
   max-width: 520px;
   max-height: 82vh;
+  max-height: 82svh;
+  max-height: 82dvh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
 }
@@ -270,6 +311,8 @@ html, body {
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 12px;
   max-height: 54vh;
+  max-height: 54svh;
+  max-height: 54dvh;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -311,25 +354,65 @@ html, body {
 
 .fps-counter {
   position: absolute;
-  top: 8px;
-  right: 12px;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  right: calc(env(safe-area-inset-right, 0px) + 12px);
   font-size: 11px;
   color: var(--ok);
   font-family: monospace;
   pointer-events: none;
+  z-index: 6;
 }
 
-@media (max-width: 700px) {
-  .hud-controls-reminder { display: none; }
-  .timeline-wrap { width: 80%; }
-  .panel { padding: 24px 20px; }
+/* ------------------------------------------------------------------ rotate hint */
+/* This is a landscape-first game: the 16:9 stage shrinks to a thin strip in
+   portrait. Nudge the player to rotate rather than silently shipping a tiny,
+   awkward layout. Non-blocking — gameplay stays reachable underneath. */
+#rotate-hint {
+  position: absolute;
+  left: 50%;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: clamp(11px, 3vw, 13px);
+  letter-spacing: 0.5px;
+  color: var(--white);
+  background: rgba(10, 14, 20, 0.85);
+  border: 1px solid rgba(127, 227, 255, 0.4);
+  border-radius: 999px;
+  padding: 8px 16px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.4);
+  pointer-events: none;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+  animation: rotateHintNudge 1.8s ease-in-out infinite;
 }
+@keyframes rotateHintNudge {
+  0%, 100% { transform: translateX(-50%) rotate(0deg); }
+  50% { transform: translateX(-50%) rotate(-12deg); }
+}
+/* only ever relevant in portrait; stays out of the way otherwise */
+#rotate-hint.hidden { display: none; }
 
 /* ------------------------------------------------------------------ touch controls */
 /* Only shown on touch-capable devices or narrow viewports (toggled via body.touch-mode
-   in js/touch.js) so desktop/mouse play stays uncluttered. */
+   in js/touch.js) so desktop/mouse play stays uncluttered. Positioned inside #game-stage
+   (see HTML) so buttons hug the edges of the visible game view, not the raw viewport. */
 body.touch-mode .hud-controls-reminder { display: none; }
 body.touch-mode .hud-actions { display: none; }
+
+/* Frees the top-right corner for the pause/reset/record buttons instead of letting
+   the echo-count chip collide with them there. */
+body.touch-mode .hud-top {
+  max-width: calc(100% - 176px);
+  justify-content: flex-start;
+  gap: 10px 16px;
+}
+/* timeline-wrap width is handled by the plain-selector breakpoints below (700px /
+   landscape / portrait tiers) so those media queries can freely override it without
+   fighting a higher-specificity touch-mode rule here. */
 
 #touch-controls {
   position: absolute;
@@ -426,10 +509,95 @@ body.touch-mode .hud-actions { display: none; }
   border-color: rgba(183, 155, 255, 0.5);
 }
 
-@media (max-width: 480px) {
-  .touch-btn-move { width: 62px; height: 62px; font-size: 22px; }
-  .touch-btn-jump { width: 78px; height: 78px; }
-  .touch-btn-interact { width: 52px; height: 52px; right: 66px; bottom: 66px; }
-  .touch-actions { width: 130px; height: 130px; }
-  .touch-btn-small { width: 46px; height: 46px; font-size: 17px; }
+/* ================================================================== BREAKPOINTS
+   All overrides live below the base rules above so the cascade resolves in our
+   favor (equal-specificity selectors: later source order wins).
+   1. Desktop              — default rules above, > 1024px
+   2. Tablet / small desktop — <= 1024px
+   3. Mobile landscape, limited height (~600-950px wide, short) — landscape, <= 500px tall
+   4. Mobile portrait        — portrait, <= 700px wide
+   ================================================================== */
+
+/* ---- 2. tablet / small desktop ---- */
+@media (max-width: 1024px) {
+  .panel { padding: 26px 24px; }
+  .menu-list { min-width: 220px; }
+}
+
+@media (max-width: 700px) {
+  .hud-controls-reminder { display: none; }
+  .timeline-wrap { width: 80%; }
+  .panel { padding: 24px 20px; }
+}
+
+/* ---- 3. mobile landscape, limited height ----
+   Covers the 600-950px-wide/short-height phones this was audited against:
+   915x412, 844x390, 740x360, 667x375. Keyed on height (the actual constraint)
+   rather than width alone, so it also catches anything else in that shape. */
+@media (orientation: landscape) and (max-height: 500px) {
+  #hud {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 6px);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);
+    gap: 4px;
+  }
+  .room-label span:first-child { font-size: 9px; }
+  .room-label span:last-child { font-size: clamp(12px, 4vh, 15px); max-width: 40vw; }
+  .hud-echo-count { font-size: 10.5px; padding: 3px 8px; }
+  .hint-banner { font-size: clamp(10px, 3.2vh, 12.5px); padding: 4px 12px; }
+  .toast { top: 44px; font-size: 10.5px; }
+  .timeline-wrap { width: min(360px, 55%); }
+  .timeline-label { font-size: 9px; }
+
+  body.touch-mode .hud-top { max-width: calc(100% - 156px); }
+
+  .touch-topbar { top: calc(env(safe-area-inset-top, 0px) + 6px); right: calc(env(safe-area-inset-right, 0px) + 8px); gap: 8px; }
+  .touch-btn-small { width: 44px; height: 44px; font-size: 16px; }
+  .touch-dpad { left: calc(env(safe-area-inset-left, 0px) + 10px); bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); gap: 10px; }
+  .touch-btn-move { width: 54px; height: 54px; font-size: 20px; }
+  .touch-actions { right: calc(env(safe-area-inset-right, 0px) + 10px); bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); width: 118px; height: 118px; }
+  .touch-btn-jump { width: 68px; height: 68px; font-size: 12px; }
+  .touch-btn-interact { width: 46px; height: 46px; right: 60px; bottom: 60px; font-size: 15px; }
+
+  .panel { padding: 16px 20px; }
+  .panel-title { margin-bottom: 12px; font-size: 17px; }
+  .menu-list { gap: 7px; min-width: 200px; }
+  .menu-btn { padding: 9px 16px; font-size: 13px; }
+  .game-title { font-size: clamp(26px, 9vh, 44px); letter-spacing: 6px; }
+  .game-subtitle { margin: 6px 0 16px; }
+  .level-grid { max-height: 60vh; max-height: 60svh; max-height: 60dvh; }
+
+  #rotate-hint { display: none !important; }
+}
+
+/* extra-tight height (small phones, or nav-bar-eaten viewports down around 360px) */
+@media (orientation: landscape) and (max-height: 380px) {
+  .hint-banner { font-size: 10px; padding: 3px 10px; }
+  .toast { top: 40px; font-size: 9.5px; }
+  .timeline-wrap { width: min(300px, 46%); }
+  .touch-btn-move { width: 48px; height: 48px; }
+  .touch-btn-jump { width: 60px; height: 60px; }
+  .touch-btn-interact { width: 44px; height: 44px; right: 52px; bottom: 52px; }
+  .touch-actions { width: 104px; height: 104px; }
+}
+
+/* ---- 4. mobile portrait ---- */
+@media (orientation: portrait) and (max-width: 700px) {
+  #rotate-hint:not(.hidden) { display: flex; }
+
+  .touch-btn-move { width: 56px; height: 56px; font-size: 20px; }
+  .touch-btn-jump { width: 72px; height: 72px; font-size: 12px; }
+  .touch-btn-interact { width: 48px; height: 48px; right: 62px; bottom: 62px; font-size: 15px; }
+  .touch-actions { width: 128px; height: 128px; }
+  .touch-btn-small { width: 44px; height: 44px; font-size: 16px; }
+
+  /* The 16:9 stage letterboxes down to a thin strip in portrait (see #rotate-hint
+     above), so there isn't safe vertical room for the timeline/hint/toast without
+     them colliding with the bottom-anchored touch buttons. The essentials (room
+     name, echo count, and the record button's own pulse state) stay visible;
+     rotating to landscape brings the rest back. */
+  .timeline-wrap, .hint-banner, .toast { display: none; }
+  #hud { justify-content: flex-start; gap: 6px; }
+
+  .panel { width: 92%; padding: 22px 18px; }
+  .level-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
 }

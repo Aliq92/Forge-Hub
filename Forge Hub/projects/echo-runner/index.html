@@ -10,59 +10,69 @@
 </head>
 <body>
 <div id="app">
-  <canvas id="game-canvas" width="960" height="540"></canvas>
+  <!-- The stage is the letterboxed 16:9 game area. HUD and touch controls live
+       inside it (not directly in #app) so they align to the visible game view
+       instead of the full viewport when the device aspect ratio isn't 16:9. -->
+  <div id="game-stage">
+    <canvas id="game-canvas" width="960" height="540"></canvas>
 
-  <!-- ------------------------------------------------------------ gameplay HUD -->
-  <div id="hud" class="hidden">
-    <div class="hud-top">
-      <div class="room-label">
-        <span id="hud-chapter"></span>
-        <span id="hud-room"></span>
+    <!-- ------------------------------------------------------------ gameplay HUD -->
+    <div id="hud" class="hidden">
+      <div class="hud-top">
+        <div class="room-label">
+          <span id="hud-chapter"></span>
+          <span id="hud-room"></span>
+        </div>
+        <div class="hud-echo-count" id="hud-echo-count"></div>
       </div>
-      <div class="hud-echo-count" id="hud-echo-count"></div>
-    </div>
 
-    <div class="timeline-wrap" id="timeline-wrap">
-      <div class="timeline-label">
-        <span>RECORDING</span>
-        <span id="timeline-time">0.0s / 10s</span>
+      <div class="timeline-wrap" id="timeline-wrap">
+        <div class="timeline-label">
+          <span>RECORDING</span>
+          <span id="timeline-time">0.0s / 10s</span>
+        </div>
+        <div class="timeline-bar">
+          <div class="timeline-fill" id="timeline-fill"></div>
+          <div class="timeline-markers" id="timeline-markers"></div>
+        </div>
       </div>
-      <div class="timeline-bar">
-        <div class="timeline-fill" id="timeline-fill"></div>
-        <div class="timeline-markers" id="timeline-markers"></div>
+
+      <div id="hint-banner" class="hint-banner"></div>
+      <div id="toast" class="toast"></div>
+
+      <div class="hud-controls-reminder">
+        A/D MOVE &nbsp;·&nbsp; SPACE JUMP &nbsp;·&nbsp; E INTERACT &nbsp;·&nbsp; R RECORD &nbsp;·&nbsp; Q RESET &nbsp;·&nbsp; ESC PAUSE
+      </div>
+
+      <div class="hud-actions">
+        <button class="mini-btn" id="btn-clear-last" title="Clear Last Echo">CLEAR LAST ECHO</button>
+        <button class="mini-btn" id="btn-clear-all" title="Clear All Echoes">CLEAR ALL ECHOES</button>
+        <button class="mini-btn" id="btn-restart-room" title="Restart Room">RESTART ROOM</button>
       </div>
     </div>
 
-    <div id="hint-banner" class="hint-banner"></div>
-    <div id="toast" class="toast"></div>
-
-    <div class="hud-controls-reminder">
-      A/D MOVE &nbsp;·&nbsp; SPACE JUMP &nbsp;·&nbsp; E INTERACT &nbsp;·&nbsp; R RECORD &nbsp;·&nbsp; Q RESET &nbsp;·&nbsp; ESC PAUSE
+    <!-- ------------------------------------------------------------ touch controls (mobile/tablet) -->
+    <div id="touch-controls" class="hidden">
+      <div class="touch-topbar">
+        <button class="touch-btn touch-btn-small" id="tc-pause" aria-label="Pause">⏸</button>
+        <button class="touch-btn touch-btn-small" id="tc-reset" aria-label="Reset attempt">↺</button>
+        <button class="touch-btn touch-btn-small touch-btn-record" id="tc-record" aria-label="Record echo">●</button>
+      </div>
+      <div class="touch-dpad">
+        <button class="touch-btn touch-btn-move" id="tc-left" aria-label="Move left">◀</button>
+        <button class="touch-btn touch-btn-move" id="tc-right" aria-label="Move right">▶</button>
+      </div>
+      <div class="touch-actions">
+        <button class="touch-btn touch-btn-interact" id="tc-interact" aria-label="Interact">E</button>
+        <button class="touch-btn touch-btn-jump" id="tc-jump" aria-label="Jump">JUMP</button>
+      </div>
     </div>
 
-    <div class="hud-actions">
-      <button class="mini-btn" id="btn-clear-last" title="Clear Last Echo">CLEAR LAST ECHO</button>
-      <button class="mini-btn" id="btn-clear-all" title="Clear All Echoes">CLEAR ALL ECHOES</button>
-      <button class="mini-btn" id="btn-restart-room" title="Restart Room">RESTART ROOM</button>
-    </div>
+    <div id="fps-counter" class="fps-counter hidden">0 FPS</div>
   </div>
 
-  <!-- ------------------------------------------------------------ touch controls (mobile/tablet) -->
-  <div id="touch-controls" class="hidden">
-    <div class="touch-topbar">
-      <button class="touch-btn touch-btn-small" id="tc-pause" aria-label="Pause">⏸</button>
-      <button class="touch-btn touch-btn-small" id="tc-reset" aria-label="Reset attempt">↺</button>
-      <button class="touch-btn touch-btn-small touch-btn-record" id="tc-record" aria-label="Record echo">●</button>
-    </div>
-    <div class="touch-dpad">
-      <button class="touch-btn touch-btn-move" id="tc-left" aria-label="Move left">◀</button>
-      <button class="touch-btn touch-btn-move" id="tc-right" aria-label="Move right">▶</button>
-    </div>
-    <div class="touch-actions">
-      <button class="touch-btn touch-btn-interact" id="tc-interact" aria-label="Interact">E</button>
-      <button class="touch-btn touch-btn-jump" id="tc-jump" aria-label="Jump">JUMP</button>
-    </div>
-  </div>
+  <!-- shown only in portrait on small screens during gameplay; this is a landscape-first game -->
+  <div id="rotate-hint" class="hidden">↻ ROTATE YOUR DEVICE — this room plays best in landscape</div>
 
   <!-- ------------------------------------------------------------ title screen -->
   <section class="screen" id="screen-title">
@@ -176,8 +186,6 @@
       </nav>
     </div>
   </section>
-
-  <div id="fps-counter" class="fps-counter hidden">0 FPS</div>
 </div>
 <script type="module" src="js/main.js"></script>
 </body>

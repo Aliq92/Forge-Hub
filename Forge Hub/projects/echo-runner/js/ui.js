@@ -19,6 +19,7 @@ export class UI {
       hintBanner: $('hint-banner'),
       toast: $('toast'),
       fps: $('fps-counter'),
+      rotateHint: $('rotate-hint'),
       screens: {
         title: $('screen-title'),
         levelSelect: $('screen-level-select'),
@@ -157,7 +158,10 @@ export class UI {
       const shouldShow = map[key] === g.state;
       this.el.screens[key].classList.toggle('hidden', !shouldShow);
     }
-    this.el.hud.classList.toggle('hidden', !(g.state === 'playing' || g.state === 'paused'));
+    const inGameplay = g.state === 'playing' || g.state === 'paused';
+    this.el.hud.classList.toggle('hidden', !inGameplay);
+    // actual visibility is further restricted to portrait/narrow screens via CSS media queries
+    this.el.rotateHint.classList.toggle('hidden', !inGameplay);
   }
 
   syncHUD() {
