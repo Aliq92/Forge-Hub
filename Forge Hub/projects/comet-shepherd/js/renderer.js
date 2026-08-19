@@ -6,11 +6,22 @@ export class Camera{
     this.x = 0; this.y = 0; this.zoom = 0.85;
     this.targetZoom = 0.85;
   }
-  follow(comet, dt, nearMassive){
+  follow(comet, dt, nearMassive, gate){
     const lookX = comet.vx * 0.28;
     const lookY = comet.vy * 0.28;
-    const tx = comet.x + clamp(lookX, -CONFIG.CAMERA_LOOKAHEAD, CONFIG.CAMERA_LOOKAHEAD);
-    const ty = comet.y + clamp(lookY, -CONFIG.CAMERA_LOOKAHEAD, CONFIG.CAMERA_LOOKAHEAD);
+    let tx = comet.x + clamp(lookX, -CONFIG.CAMERA_LOOKAHEAD, CONFIG.CAMERA_LOOKAHEAD);
+    let ty = comet.y + clamp(lookY, -CONFIG.CAMERA_LOOKAHEAD, CONFIG.CAMERA_LOOKAHEAD);
+    // Subtle framing bias toward the gate once it's within reach, so the approach reads
+    // as deliberate rather than the gate just scrolling into view.
+    if(gate && !gate.activated){
+      const dgx = gate.x - comet.x, dgy = gate.y - comet.y;
+      const dg = Math.hypot(dgx, dgy);
+      if(dg < 900 && dg > 1){
+        const bias = clamp((900 - dg) / 900, 0, 1) * 0.3;
+        tx += (dgx / dg) * bias * 140;
+        ty += (dgy / dg) * bias * 140;
+      }
+    }
     const t = 1 - Math.exp(-CONFIG.CAMERA_LERP * dt);
     this.x = lerp(this.x, tx, t);
     this.y = lerp(this.y, ty, t);
@@ -149,6 +160,46 @@ export class Renderer{
       ctx.stroke();
     }
     ctx.restore();
+  }
+
+  // Gravity readability aid: faint rings at each body's meaningful influence radius.
+  // 'off' draws nothing, 'low' is a single subtle ring, 'high' adds a tighter inner warning ring.
+  drawGravityRings(system, level){
+    if(!level || level === 'off') return;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.setLineDash([4, 7]);
+
+    const drawRing = (x, y, radius, alpha) => {
+      const s = this.worldToScreen(x, y);
+      const r = radius * this.camera.zoom;
+      if(r < 4 || s.x < -r || s.x > this.w+r || s.y < -r || s.y > this.h+r) return;
+      ctx.strokeStyle = `rgba(150,200,255,${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, TAU); ctx.stroke();
+    };
+
+    drawRing(system.star.x, system.star.y, system.star.heatRadius, 0.08);
+    drawRing(system.star.x, system.star.y, system.star.dangerRadius, 0.14);
+    for(const p of system.planets){
+      drawRing(p.x, p.y, p.radius * CONFIG.ASSIST_INFLUENCE_MULT, 0.07);
+      if(level === 'high') drawRing(p.x, p.y, p.radius * 2.1, 0.16);
+    }
+    ctx.restore();
+  }
+
+  // Brief expanding bloom used during the gate-entry cinematic.
+  drawGateBloom(x, y, t01){
+    const ctx = this.ctx;
+    const s = this.worldToScreen(x, y);
+    const r = (60 + t01 * 260) * this.camera.zoom;
+    const alpha = (1 - t01) * 0.5;
+    if(alpha <= 0.01) return;
+    const glow = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, r);
+    glow.addColorStop(0, `rgba(220,250,255,${alpha})`);
+    glow.addColorStop(1, 'rgba(220,250,255,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, TAU); ctx.fill();
   }
 
   drawStar(star, flare){
@@ -392,19 +443,33 @@ export class Renderer{
       ctx.restore();
     }
 
-    // nucleus
+    // nucleus — flickers subtly once the comet is CRACKING/CRITICAL, communicating
+    // fragility without a second HUD meter.
+    const stability = comet.stabilityState;
+    const flicker = stability === 'CRITICAL' ? 0.72 + Math.sin(performance.now()/55)*0.28
+                  : stability === 'CRACKING' ? 0.88 + Math.sin(performance.now()/90)*0.12
+                  : 1;
+    ctx.save();
+    ctx.globalAlpha = clamp(flicker, 0.3, 1);
     const core = ctx.createRadialGradient(s.x - r*0.3, s.y - r*0.3, 0, s.x, s.y, r);
     core.addColorStop(0, coreColor);
     core.addColorStop(0.6, midColor);
     core.addColorStop(1, hexA(midColor, 0.3));
     ctx.fillStyle = core;
     ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, TAU); ctx.fill();
+    ctx.restore();
 
     if(comet.invulnTimer > 0){
       ctx.save();
       ctx.strokeStyle = `rgba(180,240,255,${0.4 + Math.sin(performance.now()/100)*0.2})`;
       ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(s.x, s.y, r*1.8, 0, TAU); ctx.stroke();
+      ctx.restore();
+    } else if(stability === 'CRITICAL'){
+      ctx.save();
+      ctx.strokeStyle = `rgba(255,90,70,${0.3 + Math.sin(performance.now()/180)*0.22})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(s.x, s.y, r*2.3, 0, TAU); ctx.stroke();
       ctx.restore();
     }
   }

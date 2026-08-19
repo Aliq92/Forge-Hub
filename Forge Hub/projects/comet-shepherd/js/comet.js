@@ -117,16 +117,29 @@ export class Comet{
     this.maxSpeed = Math.max(this.maxSpeed, spd);
     this.distanceTravelled += spd * dt;
 
-    // tail intensity reacts to speed & heat
+    // tail intensity reacts to speed & heat — both speed AND stellar heat should make
+    // the tail longer/brighter (heat used to subtract here, which fought a close solar
+    // pass looking dramatic; now a close/hot pass is rewarded visually, matching stars
+    // actually boiling off more coma material).
     const speedFactor = clamp(spd / 380, 0, 1);
     const heatFactor = clamp(this.heat / 100, 0, 1);
-    this.tailIntensity = clamp(0.35 + speedFactor*0.75 - heatFactor*0.15, 0.15, 1.4);
+    this.tailIntensity = clamp(0.35 + speedFactor*0.75 + heatFactor*0.4, 0.15, 1.7);
   }
 
   get heatLabel(){
     if(this.heat < CONFIG.HEAT_COLD_MAX) return 'COLD';
     if(this.heat < CONFIG.HEAT_WARM_MAX) return 'WARM';
     if(this.heat < CONFIG.HEAT_HOT_MAX) return 'HOT';
+    return 'CRITICAL';
+  }
+
+  // Qualitative stability read on Ice Integrity — reuses the existing ice/health stat
+  // rather than adding a second meter, per the "don't clutter the HUD" design rule.
+  get stabilityState(){
+    const frac = this.maxIce > 0 ? this.ice / this.maxIce : 1;
+    if(frac > 0.66) return 'STABLE';
+    if(frac > 0.33) return 'STRAINED';
+    if(frac > 0.12) return 'CRACKING';
     return 'CRITICAL';
   }
 }

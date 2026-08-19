@@ -60,6 +60,26 @@ export const CONFIG = {
 
   STORAGE_BEST: 'cometShepherd.bestRun.v1',
   STORAGE_SETTINGS: 'cometShepherd.settings.v1',
+
+  TRAJECTORY_QUALITY: { low: 0.65, medium: 1.0, high: 1.4 },
+
+  // Near-miss / skill-reward tuning. "ratio" = closest distance divided by the body's
+  // collision threshold (planet: radius+cometRadius, star: star radius) — lower is riskier.
+  NEAR_MISS: {
+    planetRatio: { daring: 1.8, bold: 3.0, close: 5.0 },
+    starRatio: { daring: 1.6, bold: 2.4, close: 3.4 },
+    stardust: { close: 15, bold: 30, daring: 55, perfect: 90 },
+    score: { close: 150, bold: 300, daring: 550, perfect: 900, assist: 250 },
+    iceHeal: { daring: 2, perfect: 3 },
+  },
+
+  SCORE: {
+    SYSTEM_BONUS: 1000,
+    RESOURCE_MULT: 2,
+    TIME_MULT: 2,
+    STABILITY_MULT: 3,
+    RANK_PER_SYSTEM: { B: 900, A: 1700, S: 2600 },
+  },
 };
 
 export const STAR_CONFIG = {

@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { clamp, normalize, dist, formatNumber, formatDistance, makeRng, uid } from './utils.js';
+import { clamp, normalize, dist, formatNumber, formatDistance, makeRng, uid, todayStr } from './utils.js';
 import { Comet } from './comet.js';
 import { totalGravity } from './physics.js';
 import { generateSystem, updateOrbits, gravityBodies } from './systemGenerator.js';
@@ -8,6 +8,7 @@ import { updateAsteroidBelt, findAsteroidCollision } from './hazards.js';
 import { updateResources, RESOURCE_TYPES } from './resources.js';
 import { makeUpgradeState, applyUpgradeEffects, rollUpgradeChoices, UPGRADE_META } from './upgrades.js';
 import { ParticleSystem } from './particles.js';
+import { computeScoreBreakdown } from './scoring.js';
 
 const PARTICLE_DENSITY = { low:0.4, medium:0.75, high:1.15 };
 
@@ -18,6 +19,7 @@ export class Game{
     this.lastTime = performance.now();
     this.accumulator = 0;
     this.previewOn = false;
+    this.cinematicMode = false;
     this.particles = new ParticleSystem(1600);
     this.settings = ui.loadSettings();
     this.applySettings(this.settings);
@@ -33,6 +35,8 @@ export class Game{
     this.particles.setDensity(PARTICLE_DENSITY[s.particles] ?? 0.75);
     this.reducedMotion = !!s.reduced;
     this.screenShakeOn = !!s.shake;
+    this.gravityRingLevel = s.gravityRings || 'low';
+    this.trajectoryQuality = CONFIG.TRAJECTORY_QUALITY[s.trajectory] ?? 1;
   }
 
   _bindActions(){
@@ -48,8 +52,22 @@ export class Game{
     ui.on('pause', () => this.togglePause());
     ui.on('resume', () => this.resume());
     ui.on('quit-title', () => this.quitToTitle());
-    ui.on('retry', () => this.beginJourney());
+    ui.on('retry', () => { this.isChallengeRun ? this._startRun(this.seedBase, true) : this._startRun(uid(), false); });
     ui.on('continue-endless', () => { this._advanceAfterMilestone(); });
+
+    ui.on('challenge', () => {
+      if(!this.ui.getChallengeSeed()) this.ui.setChallengeSeed(uid());
+      ui.showScreen('screen-challenge');
+    });
+    ui.on('challenge-new-seed', () => this.ui.setChallengeSeed(uid()));
+    ui.on('challenge-daily', () => this.ui.setChallengeSeed('daily-' + todayStr()));
+    ui.on('challenge-copy', () => this.ui.copyChallengeSeed());
+    ui.on('challenge-begin', () => this._startRun(this.ui.getChallengeSeed() || uid(), true));
+    ui.on('close-challenge', () => ui.showScreen('screen-title'));
+
+    ui.on('mobile-preview', () => this.togglePreview());
+    ui.on('mobile-burst', () => this._fireEmergency());
+    ui.on('toggle-cinematic', () => this.setCinematicMode(!this.cinematicMode));
 
     ui.bindSettingsInputs(this.settings, (s) => {
       this.settings = s; this.ui.saveSettings(s); this.applySettings(s);
@@ -96,24 +114,41 @@ export class Game{
   }
 
   // ---------------- Run lifecycle ----------------
-  beginJourney(){
-    this.seedBase = uid();
+  beginJourney(){ this._startRun(uid(), false); }
+  beginChallenge(seed){ this._startRun(seed || uid(), true); }
+
+  _startRun(seedBase, isChallenge){
+    this.seedBase = seedBase;
+    this.isChallengeRun = !!isChallenge;
     this.systemNumber = 1;
     this.stardust = 0;
     this.upgradeState = makeUpgradeState();
     this.milestoneShown = false;
     this.assistTrack = new Map();
-    this.stats = { gravityAssists:0, resourcesCollected:0, closestSolarPass: Infinity, timeSurvived:0 };
+    this.starTrack = null;
+    this.previewOn = this.settings.previewDefault !== false;
+    this.stats = {
+      gravityAssists:0, resourcesCollected:0, closestSolarPass: Infinity, timeSurvived:0,
+      nearMisses:0, nearMissScore:0, resourcePoints:0, systemsCrossed:0,
+    };
     const startSys = generateSystem(1, this.seedBase + '-1');
     this.comet = new Comet(startSys.spawn.x, startSys.spawn.y, startSys.vel.x, startSys.vel.y);
     applyUpgradeEffects(this.comet, this.upgradeState);
     this.system = startSys;
     this.particles.clear();
     this.ui.setHudVisible(true);
+    this.ui.setSeedDisplay(this.isChallengeRun ? this.seedBase : null);
     this.ui.showScreen(null);
     this.state = 'playing';
     this.audio.init(); this.audio.resume();
     this.input.setEnabled(true);
+  }
+
+  togglePreview(){ this.previewOn = !this.previewOn; }
+
+  setCinematicMode(on){
+    this.cinematicMode = on;
+    this.ui.setCinematicMode(on);
   }
 
   loadSystem(n){
@@ -122,6 +157,7 @@ export class Game{
     this.comet.vx = this.system.vel.x; this.comet.vy = this.system.vel.y;
     this.comet.invulnTimer = 1.2;
     this.assistTrack = new Map();
+    this.starTrack = null;
     this.particles.clear();
   }
 
@@ -186,10 +222,14 @@ export class Game{
       else if(this.state === 'title' || this.state === 'howto' || this.state === 'settings' || this.state === 'bestrun'){
         this._updateDemo(dt);
         this._queuedInputEvents = [];
+      } else if(this.state === 'gate-transition'){
+        this._updateGateTransition(dt);
+        this._queuedInputEvents = [];
       }
 
       if(this.comet) this._sanitizeComet();
-      this.particles.update(dt);
+      const particleDt = this.state === 'gate-transition' ? dt * 0.35 : dt;
+      this.particles.update(particleDt);
       this._render(dt);
     } catch(err){
       console.error('Comet Shepherd frame error (recovered):', err);
@@ -242,11 +282,12 @@ export class Game{
     comet.update(dt, heatInput, coldSpace);
 
     this._emitTailParticles(dt);
+    this._emitFragmentParticles(dt);
     this._checkCollisions();
     this._checkAssists();
     updateResources(system.resources, comet, dt, (r) => this._onCollectResource(r));
 
-    this.renderer.camera.follow(comet, dt, this._nearMassivePlanet());
+    this.renderer.camera.follow(comet, dt, this._nearMassivePlanet(), this.system.gate);
 
     if(!comet.alive){
       this._triggerGameOver();
@@ -306,9 +347,10 @@ export class Game{
     const events = this._queuedInputEvents || [];
     this._queuedInputEvents = [];
     for(const e of events){
-      if(e.type === 'toggle_preview'){ this.previewOn = !this.previewOn; }
+      if(e.type === 'toggle_preview'){ this.togglePreview(); }
       else if(e.type === 'emergency'){ this._fireEmergency(); }
       else if(e.type === 'drag_end'){ this._applyDragCorrection(e); }
+      else if(e.type === 'toggle_cinematic'){ this.setCinematicMode(!this.cinematicMode); }
     }
   }
   _handleContinuousInput(dt){
@@ -380,7 +422,10 @@ export class Game{
     }
   }
 
-  // ---------------- Gravity assist detection ----------------
+  // ---------------- Gravity assist & near-miss detection ----------------
+  // A single pass per encounter (tracked by entry/exit through an influence zone) decides
+  // whether it was a meaningful slingshot, a skillful close pass, both (PERFECT SLINGSHOT),
+  // or neither — so the same graze never fires two overlapping popups.
   _checkAssists(){
     const comet = this.comet;
     for(const p of this.system.planets){
@@ -395,23 +440,75 @@ export class Game{
         }
       } else if(track){
         this.assistTrack.delete(p.id);
-        const exitSpeed = comet.speed;
-        const deltaPct = (exitSpeed - track.entrySpeed) / Math.max(1, track.entrySpeed);
-        const dot = track.entryVx*comet.vx + track.entryVy*comet.vy;
-        const magProduct = Math.max(1, track.entrySpeed * exitSpeed);
-        const angleDelta = Math.acos(clamp(dot / magProduct, -1, 1)); // radians of heading change
-        const meaningfulSpeed = Math.abs(deltaPct) >= CONFIG.ASSIST_MIN_SPEED_DELTA_PCT;
-        const meaningfulAngle = angleDelta >= 0.19; // ~11 degrees of visible curvature
-        if((meaningfulSpeed || meaningfulAngle) && comet.invulnTimer <= 0){
-          this.stats.gravityAssists++;
-          const pct = Math.round(deltaPct*100);
-          const label = meaningfulSpeed ? (deltaPct >= 0 ? `SLINGSHOT +${pct}%` : `GRAVITY BRAKE ${pct}%`) : 'GRAVITY ASSIST';
-          const s = this.renderer.worldToScreen(comet.x, comet.y);
-          this.ui.showFeedback(label, s.x, s.y - 50);
-          this.audio.assistChime();
-          if(comet.slingshotMasteryLevel > 0) comet.restoreEnergy(comet.slingshotMasteryLevel*8);
-        }
+        const collisionThreshold = p.radius + comet.radius;
+        const ratio = track.minDist / Math.max(1, collisionThreshold);
+        this._resolveEncounter(track, comet, ratio, CONFIG.NEAR_MISS.planetRatio, 'planet');
       }
+    }
+
+    // Star near-miss tracked separately since it's a single body, not a Map of many.
+    const star = this.system.star;
+    const dStar = dist(comet.x, comet.y, star.x, star.y);
+    if(dStar < star.heatRadius){
+      if(!this.starTrack){
+        this.starTrack = { entrySpeed: comet.speed, entryVx: comet.vx, entryVy: comet.vy, minDist: dStar };
+      } else {
+        this.starTrack.minDist = Math.min(this.starTrack.minDist, dStar);
+      }
+    } else if(this.starTrack){
+      const track = this.starTrack; this.starTrack = null;
+      const ratio = track.minDist / Math.max(1, star.radius);
+      this._resolveEncounter(track, comet, ratio, CONFIG.NEAR_MISS.starRatio, 'star');
+    }
+  }
+
+  _resolveEncounter(track, comet, ratio, ratioTiers, kind){
+    if(comet.invulnTimer > 0) return;
+    const exitSpeed = comet.speed;
+    const deltaPct = (exitSpeed - track.entrySpeed) / Math.max(1, track.entrySpeed);
+    const dot = track.entryVx*comet.vx + track.entryVy*comet.vy;
+    const magProduct = Math.max(1, track.entrySpeed * exitSpeed);
+    const angleDelta = Math.acos(clamp(dot / magProduct, -1, 1)); // radians of heading change
+    const meaningfulSpeed = Math.abs(deltaPct) >= CONFIG.ASSIST_MIN_SPEED_DELTA_PCT;
+    const meaningfulAngle = angleDelta >= 0.19; // ~11 degrees of visible curvature
+    const isSlingshot = meaningfulSpeed || meaningfulAngle;
+
+    let rank = null;
+    if(ratio <= ratioTiers.daring) rank = 'daring';
+    else if(ratio <= ratioTiers.bold) rank = 'bold';
+    else if(ratio <= ratioTiers.close) rank = 'close';
+
+    const nm = CONFIG.NEAR_MISS;
+    const s = this.renderer.worldToScreen(comet.x, comet.y);
+    let label = null;
+
+    if(isSlingshot && rank && (rank === 'daring' || rank === 'bold')){
+      // A tight, dramatic pass that also meaningfully redirected the comet.
+      label = 'PERFECT SLINGSHOT';
+      this.stats.gravityAssists++;
+      this.stats.nearMisses++;
+      this.stats.nearMissScore += nm.score.perfect;
+      this.stardust += nm.stardust.perfect;
+      comet.heal(nm.iceHeal.perfect);
+      if(comet.slingshotMasteryLevel > 0) comet.restoreEnergy(comet.slingshotMasteryLevel*8);
+    } else if(isSlingshot){
+      const pct = Math.round(deltaPct*100);
+      label = meaningfulSpeed ? (deltaPct >= 0 ? `SLINGSHOT +${pct}%` : `GRAVITY BRAKE ${pct}%`) : 'GRAVITY ASSIST';
+      this.stats.gravityAssists++;
+      this.stats.nearMissScore += nm.score.assist;
+      if(comet.slingshotMasteryLevel > 0) comet.restoreEnergy(comet.slingshotMasteryLevel*8);
+    } else if(rank){
+      const labels = { close: 'CLOSE PASS', bold: 'BOLD PASS', daring: 'DARING PASS' };
+      label = labels[rank] + (kind === 'star' ? ' (SOLAR)' : '');
+      this.stats.nearMisses++;
+      this.stats.nearMissScore += nm.score[rank];
+      this.stardust += nm.stardust[rank];
+      if(rank === 'daring'){ comet.heal(nm.iceHeal.daring); }
+    }
+
+    if(label){
+      this.ui.showFeedback(label, s.x, s.y - 50);
+      this.audio.assistChime();
     }
   }
 
@@ -429,6 +526,7 @@ export class Game{
       case 'STARDUST': this.stardust += r.value; this.audio.pickupStardust(); break;
       case 'ANCIENT_CORE': this.stardust += r.value; this.audio.pickupCore(); break;
     }
+    this.stats.resourcePoints += r.value;
     if(bonus){ this.stardust += 5; }
     const def = RESOURCE_TYPES[r.type];
     this._burstParticles(r.x, r.y, def.color, 10, 1.4);
@@ -436,28 +534,60 @@ export class Game{
 
   // ---------------- Particles ----------------
   _emitTailParticles(dt){
-    const comet = this.comet;
+    const comet = this.comet, star = this.system.star;
     const budget = this.particles.spawnBudget(Math.round(6 + comet.tailIntensity*10));
     const heatT = clamp(comet.heat/100,0,1);
-    const backX = -comet.vx, backY = -comet.vy;
-    const back = normalize(backX, backY);
+
+    // Tail direction is stylized, not simulated solar wind: mostly velocity-backward,
+    // blended toward "away from the star" as heat rises, so a close solar pass visibly
+    // sweeps the tail outward rather than just streaking behind the flight path.
+    const velBack = normalize(-comet.vx, -comet.vy);
+    const awayFromStar = normalize(comet.x - star.x, comet.y - star.y);
+    const starPull = clamp(heatT * 0.65, 0, 0.6);
+    const back = normalize(
+      velBack.x * (1 - starPull) + awayFromStar.x * starPull,
+      velBack.y * (1 - starPull) + awayFromStar.y * starPull
+    );
+
+    const energetic = heatT > 0.6;
     for(let i=0;i<budget;i++){
       const spread = 0.5;
       const ang = Math.atan2(back.y,back.x) + (Math.random()-0.5)*spread;
-      const speed = 20 + Math.random()*60 + comet.speed*0.15;
+      const speed = (20 + Math.random()*60 + comet.speed*0.15) * (energetic ? 1.35 : 1);
       const dist0 = Math.random()*comet.radius*1.5;
       const color = heatT > 0.6 ? '255,180,130' : '150,225,255';
       this.particles.spawn({
         x: comet.x + Math.cos(ang)*dist0*0.3, y: comet.y + Math.sin(ang)*dist0*0.3,
         vx: Math.cos(ang)*speed + comet.vx*0.15, vy: Math.sin(ang)*speed + comet.vy*0.15,
-        life: 0.5 + Math.random()*0.6*comet.tailIntensity, size: 1.2+Math.random()*2.2, sizeEnd:0.2,
-        color, alpha: 0.7, drag:0.97, glow:true,
+        life: (0.5 + Math.random()*0.6*comet.tailIntensity) * (energetic ? 1.2 : 1),
+        size: (1.2+Math.random()*2.2) * (energetic ? 1.25 : 1), sizeEnd:0.2,
+        color, alpha: energetic ? 0.85 : 0.7, drag:0.97, glow:true,
       });
     }
     if(comet.heat > 70 && Math.random() < 0.3){
       this.particles.spawn({
         x: comet.x, y: comet.y, vx:(Math.random()-0.5)*40, vy:(Math.random()-0.5)*40,
         life: 0.8, size: 1.6, sizeEnd:0.3, color:'220,240,255', alpha:0.8, drag:0.95,
+      });
+    }
+  }
+
+  // Visible breakup once the comet is CRACKING/CRITICAL — small pale debris chips
+  // drifting off the nucleus, reusing the same pooled particle system as the tail.
+  _emitFragmentParticles(dt){
+    const comet = this.comet;
+    const stability = comet.stabilityState;
+    if(stability === 'STABLE' || stability === 'STRAINED') return;
+    const rate = stability === 'CRITICAL' ? 3 : 1.2;
+    const budget = this.particles.spawnBudget(Math.round(rate));
+    for(let i=0;i<budget;i++){
+      const ang = Math.random()*Math.PI*2;
+      const speed = 12 + Math.random()*30;
+      this.particles.spawn({
+        x: comet.x, y: comet.y,
+        vx: Math.cos(ang)*speed + comet.vx*0.3, vy: Math.sin(ang)*speed + comet.vy*0.3,
+        life: 0.6 + Math.random()*0.5, size: 1 + Math.random()*1.6, sizeEnd: 0.15,
+        color: '200,205,215', alpha: 0.6, drag: 0.96, glow:false,
       });
     }
   }
@@ -489,9 +619,25 @@ export class Game{
   }
 
   // ---------------- Gate / Game over ----------------
+  _updateGateTransition(dt){
+    this.gateTransitionTimer = (this.gateTransitionTimer || 0) + dt;
+    const comet = this.comet, gate = this.system.gate;
+    const cam = this.renderer.camera;
+    cam.x += (comet.x - cam.x) * Math.min(1, dt * 3.2);
+    cam.y += (comet.y - cam.y) * Math.min(1, dt * 3.2);
+    cam.zoom += (Math.min(CONFIG.ZOOM_MAX + 0.3, cam.zoom + 0.4) - cam.zoom) * Math.min(1, dt * 2.2);
+    if(Math.random() < 0.6){
+      this.particles.spawn({
+        x: comet.x, y: comet.y, vx:(Math.random()-0.5)*30, vy:(Math.random()-0.5)*30,
+        life: 0.5, size: 1.8, sizeEnd: 0.2, color:'210,245,255', alpha: 0.85, drag:0.95, glow:true,
+      });
+    }
+  }
+
   _triggerGateReached(){
     this.audio.gateActivate();
     this._burstParticles(this.system.gate.x, this.system.gate.y, '180,240,255', 50, 2.2);
+    this.gateTransitionTimer = 0;
     this.stats.systemsCrossed = (this.stats.systemsCrossed||0) + 1;
     this.ui.fadeToBlack(() => {
       if(this.systemNumber === CONFIG.MILESTONE_SYSTEM && !this.milestoneShown){
@@ -511,7 +657,8 @@ export class Game{
     this.renderer.addShake(this.screenShakeOn ? 26 : 0);
     this.audio.breakApart();
     setTimeout(() => {
-      const stats = this._collectFinalStats();
+      const breakdown = computeScoreBreakdown(this.stats, this.comet, this.stardust);
+      const stats = this._collectFinalStats().concat(breakdown.rows);
       this.ui.renderStats(document.getElementById('gameover-stats'), stats);
       const best = this.ui.loadBest();
       if(!best || this.comet.distanceTravelled > best.distance){
@@ -575,6 +722,7 @@ export class Game{
 
     r.drawBackground(activeComet.heat ? activeComet.heat/100 : 0);
     r.drawOrbitLines(activeSystem, true);
+    if(useRun) r.drawGravityRings(activeSystem, this.gravityRingLevel);
     r.drawStar(activeSystem.star, activeSystem.flare);
     for(const belt of activeSystem.belts) r.drawAsteroidBelt(belt);
     for(const p of activeSystem.planets) r.drawPlanet(p);
@@ -595,7 +743,7 @@ export class Game{
           const n = normalize(dragVec.dx, dragVec.dy);
           pending = { x: n.x * CONFIG.CORRECTION_MAX_IMPULSE * dragVec.strengthFrac, y: n.y * CONFIG.CORRECTION_MAX_IMPULSE * dragVec.strengthFrac };
         }
-        this._previewPts = computeTrajectory(this.comet, this.system, pending);
+        this._previewPts = computeTrajectory(this.comet, this.system, pending, this.trajectoryQuality);
         r.drawTrajectory(this._previewPts, this.reducedMotion);
       } else {
         this._previewPts = null;
@@ -607,11 +755,16 @@ export class Game{
 
     r.drawComet(activeComet);
 
+    if(this.state === 'gate-transition'){
+      const t01 = clamp((this.gateTransitionTimer||0) / 0.55, 0, 1);
+      r.drawGateBloom(activeComet.x, activeComet.y, t01);
+    }
+
     r.applyDamageFlash(activeComet.impactFlash||0);
     r.applyHeatVignette((activeComet.heat||0)/100);
     r.endFrame();
 
-    if(this.state==='playing' || this.state==='paused'){
+    if(this.state==='playing' || this.state==='paused' || this.state==='gate-transition'){
       this.minimap.draw(this.system, this.comet);
     }
 

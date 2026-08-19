@@ -38,6 +38,7 @@ export class InputManager{
         case 'ArrowRight': case 'KeyD': this.keys.right = true; break;
         case 'Space': this.events.push({type:'emergency'}); e.preventDefault(); break;
         case 'KeyE': this.events.push({type:'toggle_preview'}); break;
+        case 'KeyC': this.events.push({type:'toggle_cinematic'}); break;
         case 'Escape': this.events.push({type:'pause'}); break;
       }
     });

@@ -6,9 +6,9 @@ import { CONFIG } from './config.js';
 // Simulates a simplified forward path for the trajectory preview.
 // Uses current planet positions (not their future orbital motion) — accurate enough
 // for short-to-medium horizon slingshot judgement without heavy recomputation.
-export function computeTrajectory(comet, system, pendingImpulse){
+export function computeTrajectory(comet, system, pendingImpulse, qualityMult=1){
   const gsFactor = 1 + comet.gravitySenseLevel * 0.18;
-  const steps = Math.round((CONFIG.PREVIEW_BASE_STEPS + comet.previewLevel * CONFIG.PREVIEW_STEPS_PER_LEVEL) * gsFactor);
+  const steps = Math.round((CONFIG.PREVIEW_BASE_STEPS + comet.previewLevel * CONFIG.PREVIEW_STEPS_PER_LEVEL) * gsFactor * qualityMult);
   const dt = CONFIG.PREVIEW_STEP_DT / gsFactor;
   const bodies = gravityBodies(system);
   let x = comet.x, y = comet.y;
@@ -26,6 +26,12 @@ export function computeTrajectory(comet, system, pendingImpulse){
 
     let danger = false;
     if(dist(x, y, system.star.x, system.star.y) < system.star.dangerRadius) danger = true;
+    if(!danger){
+      for(const b of bodies){
+        if(b === system.star) continue;
+        if(dist(x, y, b.x, b.y) < b.radius * 2.1){ danger = true; break; }
+      }
+    }
 
     pts.push({ x, y, danger });
 

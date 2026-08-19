@@ -11,6 +11,7 @@ export class UI{
     $$('.screen').forEach(el => this.screens[el.id] = el);
     this.hud = $('#hud');
     this.pauseBtn = $('#pause-btn');
+    this.cinematicBtn = $('#cinematic-btn');
     this.barIce = $('#bar-ice');
     this.barHeat = $('#bar-heat');
     this.barEnergy = $('#bar-energy');
@@ -25,6 +26,9 @@ export class UI{
     this.energyHint = $('#energy-hint');
     this.fadeOverlay = $('#fade-overlay');
     this.activeWarnings = new Set();
+    this.challengeSeedInput = $('#challenge-seed');
+    this.seedStatWrap = $('#seed-stat-wrap');
+    this.statSeed = $('#stat-seed');
     this._actions = {};
 
     document.body.addEventListener('click', (e) => {
@@ -46,6 +50,7 @@ export class UI{
   setHudVisible(v){
     this.hud.classList.toggle('hidden', !v);
     this.pauseBtn.classList.toggle('hidden', !v);
+    this.cinematicBtn.classList.toggle('hidden', !v);
   }
 
   updateHUD(comet, systemNumber, stardust, previewOn){
@@ -64,6 +69,24 @@ export class UI{
   }
 
   setEnergyHint(text){ this.energyHint.textContent = text || ''; }
+
+  // ---- challenge seed ----
+  setChallengeSeed(seed){ if(this.challengeSeedInput) this.challengeSeedInput.value = seed; }
+  getChallengeSeed(){ return this.challengeSeedInput ? this.challengeSeedInput.value.trim() : ''; }
+  copyChallengeSeed(){
+    const v = this.getChallengeSeed();
+    if(!v) return;
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).catch(()=>{});
+  }
+  setSeedDisplay(seed){
+    if(!this.seedStatWrap) return;
+    if(seed){ this.seedStatWrap.style.display = ''; this.statSeed.textContent = seed.slice(0, 20); }
+    else { this.seedStatWrap.style.display = 'none'; }
+  }
+
+  setCinematicMode(on){
+    this.hud.classList.toggle('cinematic', !!on);
+  }
 
   setWarnings(list){
     const wanted = new Set(list);
@@ -117,10 +140,10 @@ export class UI{
 
   renderStats(container, stats){
     container.innerHTML = '';
-    for(const [label, value] of stats){
+    for(const [label, value, isHeader] of stats){
       const row = document.createElement('div');
-      row.className = 'stat-row';
-      row.innerHTML = `<span>${label}</span><span>${value}</span>`;
+      row.className = isHeader ? 'stat-row stat-header' : 'stat-row';
+      row.innerHTML = isHeader ? `<span>${label}</span>` : `<span>${label}</span><span>${value}</span>`;
       container.appendChild(row);
     }
   }
@@ -138,7 +161,8 @@ export class UI{
     let s;
     try{ s = JSON.parse(localStorage.getItem(CONFIG.STORAGE_SETTINGS)); } catch(e){ s = null; }
     const defaults = {
-      music:50, sound:70, shake:true, particles:'medium', trajectory:'medium', reduced:false, fps:false
+      music:50, sound:70, shake:true, particles:'medium', trajectory:'medium', reduced:false, fps:false,
+      gravityRings:'low', previewDefault:true,
     };
     return Object.assign(defaults, s || {});
   }
@@ -148,16 +172,19 @@ export class UI{
 
   bindSettingsInputs(settings, onChange){
     const music = $('#set-music'), sound = $('#set-sound'), shake = $('#set-shake'),
-      particles = $('#set-particles'), trajectory = $('#set-trajectory'), reduced = $('#set-reduced'), fps = $('#set-fps');
+      particles = $('#set-particles'), trajectory = $('#set-trajectory'), reduced = $('#set-reduced'), fps = $('#set-fps'),
+      gravityRings = $('#set-gravity-rings'), previewDefault = $('#set-preview-default');
     music.value = settings.music; sound.value = settings.sound; shake.checked = settings.shake;
     particles.value = settings.particles; trajectory.value = settings.trajectory;
     reduced.checked = settings.reduced; fps.checked = settings.fps;
+    gravityRings.value = settings.gravityRings; previewDefault.checked = settings.previewDefault;
     const emit = () => onChange({
       music:+music.value, sound:+sound.value, shake:shake.checked,
       particles: particles.value, trajectory: trajectory.value,
       reduced: reduced.checked, fps: fps.checked,
+      gravityRings: gravityRings.value, previewDefault: previewDefault.checked,
     });
-    [music,sound,shake,particles,trajectory,reduced,fps].forEach(el => {
+    [music,sound,shake,particles,trajectory,reduced,fps,gravityRings,previewDefault].forEach(el => {
       el.addEventListener('input', emit);
       el.addEventListener('change', emit);
     });

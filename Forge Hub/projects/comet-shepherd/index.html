@@ -22,11 +22,12 @@
       <p class="game-subtitle">Momentum is destiny. Gravity is your only ally.</p>
       <nav class="menu">
         <button class="menu-btn primary" data-action="begin-journey">BEGIN JOURNEY</button>
+        <button class="menu-btn" data-action="challenge">CHALLENGE</button>
         <button class="menu-btn" data-action="how-to-play">HOW TO PLAY</button>
         <button class="menu-btn" data-action="settings">SETTINGS</button>
         <button class="menu-btn" data-action="best-run">BEST RUN</button>
       </nav>
-      <p class="title-hint">Mouse/Touch to aim &amp; correct &middot; Arrow/AD nudge &middot; Space impulse &middot; E preview &middot; Esc pause</p>
+      <p class="title-hint">Mouse/Touch to aim &amp; correct &middot; Arrow/AD nudge &middot; Space impulse &middot; E preview &middot; C cinematic &middot; Esc pause</p>
     </div>
   </section>
 
@@ -64,6 +65,27 @@
     </div>
   </section>
 
+  <!-- ===================== CHALLENGE ===================== -->
+  <section id="screen-challenge" class="screen">
+    <div class="panel">
+      <h2>CHALLENGE</h2>
+      <p class="upgrade-sub">A seed always generates the same system chain. Share it, or replay it to sharpen a route.</p>
+      <div class="settings-list">
+        <label class="setting-row">
+          <span>Seed</span>
+          <input type="text" id="challenge-seed" spellcheck="false" />
+        </label>
+      </div>
+      <nav class="menu">
+        <button class="menu-btn" data-action="challenge-new-seed">NEW SEED</button>
+        <button class="menu-btn" data-action="challenge-daily">DAILY ROUTE</button>
+        <button class="menu-btn" data-action="challenge-copy">COPY SEED</button>
+        <button class="menu-btn primary" data-action="challenge-begin">BEGIN CHALLENGE</button>
+        <button class="menu-btn" data-action="close-challenge">BACK</button>
+      </nav>
+    </div>
+  </section>
+
   <!-- ===================== SETTINGS ===================== -->
   <section id="screen-settings" class="screen">
     <div class="panel">
@@ -90,10 +112,22 @@
           </select>
         </label>
         <label class="setting-row">
-          <span>Trajectory Detail</span>
+          <span>Trajectory Length</span>
           <select id="set-trajectory">
-            <option value="low">Low</option>
+            <option value="low">Short</option>
             <option value="medium" selected>Medium</option>
+            <option value="high">Long</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span>Trajectory Preview Default</span>
+          <input type="checkbox" id="set-preview-default" checked />
+        </label>
+        <label class="setting-row">
+          <span>Gravity Rings</span>
+          <select id="set-gravity-rings">
+            <option value="off">Off</option>
+            <option value="low" selected>Low</option>
             <option value="high">High</option>
           </select>
         </label>
@@ -140,14 +174,20 @@
       <div class="hud-stat"><span class="hud-icon">&#9679;</span><span id="stat-system">Sys 1</span></div>
       <div class="hud-stat"><span class="hud-icon">&#8594;</span><span id="stat-speed">0</span></div>
       <div class="hud-stat"><span class="hud-icon">&#8901;&#8901;&#8901;</span><span id="stat-distance">0</span></div>
+      <div class="hud-stat" id="seed-stat-wrap" style="display:none;"><span class="hud-icon">#</span><span id="stat-seed"></span></div>
       <div class="hud-stat preview-status" id="preview-status">PREVIEW OFF</div>
     </div>
     <div id="warnings" class="warnings"></div>
     <div id="feedback-layer" class="feedback-layer"></div>
     <div class="energy-hint" id="energy-hint"></div>
+    <div class="mobile-controls">
+      <button class="mobile-btn" data-action="mobile-preview" aria-label="Toggle trajectory preview">PREVIEW</button>
+      <button class="mobile-btn" data-action="mobile-burst" aria-label="Emergency burst">BURST</button>
+    </div>
   </div>
 
   <button id="pause-btn" class="icon-btn hidden" data-action="pause">&#10073;&#10073;</button>
+  <button id="cinematic-btn" class="icon-btn hidden" data-action="toggle-cinematic" aria-label="Toggle cinematic mode">&#10024;</button>
 
   <!-- ===================== PAUSE ===================== -->
   <section id="screen-pause" class="screen">

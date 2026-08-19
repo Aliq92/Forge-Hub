@@ -165,6 +165,11 @@ canvas{ position:absolute; inset:0; display:block; }
 .stats-list{ text-align:left; margin:16px 0 24px; display:flex; flex-direction:column; gap:6px; font-size:0.86rem; }
 .stats-list .stat-row{ display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dashed rgba(255,255,255,0.08); }
 .stats-list .stat-row span:last-child{ color:var(--cyan-bright); font-weight:600; }
+.stats-list .stat-header{
+  border-bottom:none; justify-content:center; margin-top:10px; padding-top:8px;
+  border-top:1px solid rgba(255,255,255,0.1);
+}
+.stats-list .stat-header span{ color:var(--text-dim); letter-spacing:0.12em; font-size:0.72rem; }
 
 /* ---------- HUD ---------- */
 .hud{ position:absolute; inset:0; z-index:10; pointer-events:none; font-size:0.78rem; }
@@ -230,6 +235,35 @@ canvas{ position:absolute; inset:0; display:block; }
   font-size:0.68rem; color:rgba(200,210,255,0.5); letter-spacing:0.05em;
 }
 
+/* ---------- Mobile controls ---------- */
+.mobile-controls{
+  display:none;
+  position:absolute; left:14px; bottom:16px;
+  gap:10px; pointer-events:auto;
+}
+.mobile-btn{
+  font-family:inherit; font-size:0.72rem; letter-spacing:0.08em; font-weight:600;
+  width:64px; height:64px; border-radius:50%;
+  background:rgba(12,14,32,0.7); color:var(--text);
+  border:1px solid var(--panel-border);
+  box-shadow:0 0 16px rgba(0,0,0,0.4);
+  cursor:pointer;
+}
+.mobile-btn:active{ background:rgba(90,100,200,0.35); border-color:var(--cyan); }
+@media (max-width:820px), (pointer:coarse){
+  .mobile-controls{ display:flex; }
+}
+
+/* ---------- Cinematic mode: hide HUD chrome, keep pause control ---------- */
+.hud.cinematic .hud-top,
+.hud.cinematic .hud-side,
+.hud.cinematic .warnings,
+.hud.cinematic .energy-hint,
+.hud.cinematic .mobile-controls{
+  opacity:0; pointer-events:none; transition:opacity 0.4s ease;
+}
+.hud .hud-top, .hud .hud-side, .hud .warnings, .hud .energy-hint{ transition:opacity 0.3s ease; }
+
 #pause-btn{
   position:absolute; top:14px; left:50%; transform:translateX(-50%);
   z-index:11; background:rgba(10,12,28,0.55); color:var(--text);
@@ -237,6 +271,14 @@ canvas{ position:absolute; inset:0; display:block; }
   width:36px; height:30px; cursor:pointer; font-size:0.8rem;
 }
 #pause-btn.hidden{ display:none; }
+
+#cinematic-btn{
+  position:absolute; top:14px; left:calc(50% + 46px);
+  z-index:11; background:rgba(10,12,28,0.55); color:var(--text);
+  border:1px solid var(--panel-border); border-radius:8px;
+  width:36px; height:30px; cursor:pointer; font-size:0.85rem;
+}
+#cinematic-btn.hidden{ display:none; }
 
 /* ---------- Upgrade cards ---------- */
 .upgrade-cards{
