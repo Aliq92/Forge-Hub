@@ -1,10 +1,14 @@
 // Orbital Bloom - DOM wiring: panels, inspector, stats, presets, settings, modals
-import { CONSTANTS, state, stats, saveSettings, loadSettings, loadLastPreset, clamp } from './config.js';
-import { attractors, getAttractor, removeAttractor, setMass } from './attractors.js';
+import {
+  CONSTANTS, state, stats, saveSettings, loadSettings, loadLastPreset, clamp,
+  saveLastSeed, loadLastSeed, saveSystemSnapshot, loadSystemSnapshot,
+} from './config.js';
+import { attractors, getAttractor, removeAttractor, setMass, duplicateAttractor, createAttractor, clearAttractors } from './attractors.js';
 import * as P from './particles.js';
 import { nearbyParticleCount } from './gravity.js';
 import * as Renderer from './renderer.js';
 import { listPresets, loadPreset } from './presets.js';
+import { generateSystem, randomSeed } from './generator.js';
 import { CHALLENGES, challengeState, startChallenge, stopChallenge, updateChallenge } from './challenges.js';
 import * as Sim from './simulation.js';
 import { focusOnSelected } from './tools.js';
@@ -29,6 +33,10 @@ export function initUI(cameraRef, canvasRef) {
   wireSettingsModal();
   wireInspector();
   wireKeyboard();
+  wireGenerator();
+  wireCinematic();
+  wireSaveLoad();
+  wireOnboarding();
   buildPresetGrids();
   buildChallengeList();
 
@@ -62,6 +70,7 @@ function enterSandbox(presetId) {
     loadPreset(last, camera);
     syncAllControlsFromState();
   }
+  maybeShowOnboarding();
 }
 
 // ---------- Modals ----------
@@ -89,16 +98,8 @@ function wireAccordion() {
     header.addEventListener('click', () => {
       const section = header.closest('.panel-section');
       section.classList.toggle('collapsed');
-      syncClassificationAutoToggle();
     });
   });
-}
-
-function syncClassificationAutoToggle() {
-  const energyOpen = !document.querySelector('[data-section="energy"]').classList.contains('collapsed');
-  const challengesOpen = !document.querySelector('[data-section="challenges"]').classList.contains('collapsed');
-  state.classificationOverlay = energyOpen || challengesOpen || !!challengeState.active;
-  $('classification-overlay').checked = state.classificationOverlay;
 }
 
 // ---------- Tool rail ----------
@@ -137,7 +138,9 @@ function wireWorldPanel() {
   bindRange('particle-brightness', 'out-brightness', (v) => { state.particleBrightness = v; saveSettings(); }, (v) => v.toFixed(2));
   bindRange('particle-size', 'out-size', (v) => { state.particleSize = v; saveSettings(); }, (v) => v.toFixed(2));
   $('absorb-mode').addEventListener('change', (e) => { state.absorbMode = e.target.value; saveSettings(); });
+  $('collision-mode').addEventListener('change', (e) => { state.collisionMode = e.target.value; saveSettings(); });
   $('classification-overlay').addEventListener('change', (e) => { state.classificationOverlay = e.target.checked; });
+  $('gravity-overlay').addEventListener('change', (e) => { state.gravityOverlay = e.target.checked; });
 }
 
 function bindRange(inputId, outId, onChange, fmt) {
@@ -206,7 +209,7 @@ function wireSettingsModal() {
     $('spawn-amount').value = String(v);
     saveSettings();
   });
-  $('setting-trail-quality').addEventListener('change', (e) => { state.trailQuality = e.target.value; saveSettings(); });
+  $('setting-render-quality').addEventListener('change', (e) => { state.renderQuality = e.target.value; saveSettings(); });
   $('setting-bg-density').addEventListener('change', (e) => {
     state.backgroundDensity = parseFloat(e.target.value);
     Renderer.buildBackground();
@@ -230,7 +233,24 @@ function wireInspector() {
   });
   $('insp-mass').addEventListener('input', (e) => {
     const a = getAttractor(state.selectedAttractorId);
-    if (a) { setMass(a, parseFloat(e.target.value)); $('out-insp-mass').textContent = Math.round(a.mass); }
+    if (a) {
+      setMass(a, parseFloat(e.target.value));
+      $('out-insp-mass').textContent = Math.round(a.mass);
+      $('insp-radius').value = a.radius;
+      $('out-insp-radius').textContent = Math.round(a.radius);
+    }
+  });
+  $('insp-radius').addEventListener('input', (e) => {
+    const a = getAttractor(state.selectedAttractorId);
+    if (a) { a.radius = clamp(parseFloat(e.target.value), 5, 90); $('out-insp-radius').textContent = Math.round(a.radius); }
+  });
+  $('insp-px').addEventListener('change', (e) => {
+    const a = getAttractor(state.selectedAttractorId);
+    if (a) a.x = parseFloat(e.target.value) || 0;
+  });
+  $('insp-py').addEventListener('change', (e) => {
+    const a = getAttractor(state.selectedAttractorId);
+    if (a) a.y = parseFloat(e.target.value) || 0;
   });
   $('insp-vx').addEventListener('change', (e) => {
     const a = getAttractor(state.selectedAttractorId);
@@ -244,7 +264,22 @@ function wireInspector() {
     const a = getAttractor(state.selectedAttractorId);
     if (a) { a.fixed = e.target.checked; if (a.fixed) { a.vx = 0; a.vy = 0; } }
   });
+  $('insp-trail').addEventListener('change', (e) => {
+    const a = getAttractor(state.selectedAttractorId);
+    if (a) a.showTrail = e.target.checked;
+  });
+  document.querySelectorAll('#insp-color-swatches .swatch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      const a = getAttractor(state.selectedAttractorId);
+      if (a) { a.color = sw.dataset.color; refreshInspector(); }
+    });
+  });
   $('btn-insp-focus').addEventListener('click', () => focusOnSelected(camera));
+  $('btn-insp-duplicate').addEventListener('click', () => {
+    if (state.selectedAttractorId == null) return;
+    const copy = duplicateAttractor(state.selectedAttractorId);
+    if (copy) { dispatchSelectionUI(copy.id); showToast(`Duplicated ${copy.name}`); }
+  });
   $('btn-insp-delete').addEventListener('click', () => {
     if (state.selectedAttractorId != null) {
       removeAttractor(state.selectedAttractorId);
@@ -252,6 +287,11 @@ function wireInspector() {
       refreshInspector();
     }
   });
+}
+
+function dispatchSelectionUI(id) {
+  state.selectedAttractorId = id;
+  window.dispatchEvent(new CustomEvent('ob:selection-changed', { detail: { id } }));
 }
 
 function refreshInspector() {
@@ -265,12 +305,137 @@ function refreshInspector() {
   $('insp-type').textContent = a.type.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase());
   if (active !== $('insp-mass')) { $('insp-mass').value = a.mass; }
   $('out-insp-mass').textContent = Math.round(a.mass);
+  if (active !== $('insp-radius')) $('insp-radius').value = a.radius;
+  $('out-insp-radius').textContent = Math.round(a.radius);
+  if (active !== $('insp-px')) $('insp-px').value = Math.round(a.x);
+  if (active !== $('insp-py')) $('insp-py').value = Math.round(a.y);
   if (active !== $('insp-vx')) $('insp-vx').value = Math.round(a.vx);
   if (active !== $('insp-vy')) $('insp-vy').value = Math.round(a.vy);
   $('insp-speed').textContent = Math.round(Math.hypot(a.vx, a.vy));
-  $('insp-pos').textContent = `${Math.round(a.x)}, ${Math.round(a.y)}`;
   $('insp-nearby').textContent = nearbyParticleCount(a, 180);
   if (active !== $('insp-fixed')) $('insp-fixed').checked = a.fixed;
+  if (active !== $('insp-trail')) $('insp-trail').checked = a.showTrail !== false;
+  document.querySelectorAll('#insp-color-swatches .swatch').forEach(sw => {
+    sw.classList.toggle('active', sw.dataset.color === a.color);
+  });
+}
+
+// ---------- Random system generator ----------
+function wireGenerator() {
+  const seedInput = $('generator-seed');
+  const savedSeed = loadLastSeed();
+  if (savedSeed) seedInput.value = savedSeed;
+
+  $('btn-generator-seed-random').addEventListener('click', () => {
+    seedInput.value = randomSeed();
+  });
+  $('btn-generate-system').addEventListener('click', () => {
+    const seed = generateSystem(seedInput.value, camera);
+    seedInput.value = seed;
+    syncAllControlsFromState();
+    refreshInspector();
+    showToast(`Generated system · seed ${seed}`);
+  });
+}
+
+// ---------- Cinematic mode & fullscreen ----------
+let cursorHideTimer = null;
+function wireCinematic() {
+  $('btn-cinematic').addEventListener('click', enterCinematic);
+  $('btn-cinematic-exit').addEventListener('click', exitCinematic);
+  $('btn-fullscreen').addEventListener('click', toggleFullscreen);
+  $('btn-cam-follow').addEventListener('click', () => {
+    state.followBody = !state.followBody;
+    $('btn-cam-follow').classList.toggle('active-toggle', state.followBody);
+    if (state.followBody && state.selectedAttractorId == null) {
+      showToast('Select a body to follow it');
+    }
+  });
+
+  const sandbox = document.getElementById('sandbox-screen');
+  sandbox.addEventListener('mousemove', () => {
+    if (!state.cinematicMode) return;
+    sandbox.classList.remove('cursor-hidden');
+    clearTimeout(cursorHideTimer);
+    cursorHideTimer = setTimeout(() => sandbox.classList.add('cursor-hidden'), 2600);
+  });
+}
+
+function enterCinematic() {
+  state.cinematicMode = true;
+  document.getElementById('sandbox-screen').classList.add('cinematic-active');
+  $('btn-cinematic-exit').classList.remove('hidden');
+}
+function exitCinematic() {
+  state.cinematicMode = false;
+  const sandbox = document.getElementById('sandbox-screen');
+  sandbox.classList.remove('cinematic-active');
+  sandbox.classList.remove('cursor-hidden');
+  $('btn-cinematic-exit').classList.add('hidden');
+  clearTimeout(cursorHideTimer);
+}
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen?.().catch(() => showToast('Fullscreen not available'));
+  } else {
+    document.exitFullscreen?.();
+  }
+}
+
+// ---------- Save / Load system (bodies + settings, not raw particles) ----------
+function wireSaveLoad() {
+  $('btn-save-system').addEventListener('click', () => {
+    const snapshot = {
+      attractors: attractors.map(a => ({
+        type: a.type, x: a.x, y: a.y, vx: a.vx, vy: a.vy, mass: a.mass,
+        radius: a.radius, fixed: a.fixed, color: a.color, showTrail: a.showTrail, name: a.name,
+      })),
+      camera: { x: camera.x, y: camera.y, zoom: camera.zoom },
+      colorMode: state.colorMode, gravityStrength: state.gravityStrength,
+      collisionMode: state.collisionMode, seed: state.lastSeed,
+    };
+    if (saveSystemSnapshot(snapshot)) showToast('System saved');
+    else showToast('Could not save (storage unavailable)');
+  });
+
+  $('btn-load-system').addEventListener('click', () => {
+    const snap = loadSystemSnapshot();
+    if (!snap) { showToast('No saved system found'); return; }
+    clearAttractors();
+    P.resetParticles();
+    state.selectedAttractorId = null;
+    for (const a of snap.attractors || []) {
+      const created = createAttractor(a.type, a.x, a.y, {
+        mass: a.mass, vx: a.vx, vy: a.vy, fixed: a.fixed, color: a.color,
+        showTrail: a.showTrail, name: a.name,
+      });
+      if (a.radius) created.radius = a.radius;
+    }
+    if (snap.camera) camera.animateTo(snap.camera.x, snap.camera.y, snap.camera.zoom, 0.5);
+    if (snap.colorMode) state.colorMode = snap.colorMode;
+    if (snap.gravityStrength) state.gravityStrength = snap.gravityStrength;
+    if (snap.collisionMode) state.collisionMode = snap.collisionMode;
+    if (snap.seed) { state.lastSeed = snap.seed; $('generator-seed').value = snap.seed; }
+    Renderer.clearTrails();
+    syncAllControlsFromState();
+    refreshInspector();
+    showToast('System loaded — add particles to bring it to life');
+  });
+}
+
+// ---------- Onboarding ----------
+const ONBOARDING_KEY = 'orbitalBloom.onboardingSeen.v1';
+function wireOnboarding() {
+  $('btn-onboarding-dismiss').addEventListener('click', dismissOnboarding);
+}
+function dismissOnboarding() {
+  $('onboarding-guide').classList.add('hidden');
+  try { localStorage.setItem(ONBOARDING_KEY, '1'); } catch (e) {}
+}
+function maybeShowOnboarding() {
+  try {
+    if (!localStorage.getItem(ONBOARDING_KEY)) $('onboarding-guide').classList.remove('hidden');
+  } catch (e) {}
 }
 
 // ---------- Presets ----------
@@ -317,7 +482,7 @@ function buildChallengeList() {
     card.querySelector('button').addEventListener('click', () => {
       if (challengeState.active === id) { stopChallenge(); }
       else { startChallenge(id); }
-      syncClassificationAutoToggle();
+      $('classification-overlay').checked = state.classificationOverlay;
       refreshChallengeUI();
     });
   }
@@ -350,7 +515,8 @@ function wireKeyboard() {
     if (e.code === 'Space') { e.preventDefault(); togglePlayPause(); }
     else if (e.key === 'r' || e.key === 'R') camera.reset();
     else if (e.key === 'f' || e.key === 'F') fitCameraToScene();
-    else if (e.key === 'Escape') closeModals();
+    else if (e.key === 'c' || e.key === 'C') { state.cinematicMode ? exitCinematic() : enterCinematic(); }
+    else if (e.key === 'Escape') { if (state.cinematicMode) exitCinematic(); else closeModals(); }
   });
 }
 
@@ -369,11 +535,9 @@ function uiTick() {
   if (state.showFPS) $('stat-fps').textContent = `${stats.fps} FPS`;
 
   let bound = 0, falling = 0, escaping = 0, chaotic = 0;
-  if (state.classificationOverlay) {
-    for (let i = 0; i < P.count; i++) {
-      const c = P.pclass[i];
-      if (c === 0) bound++; else if (c === 1) falling++; else if (c === 2) escaping++; else chaotic++;
-    }
+  for (let i = 0; i < P.count; i++) {
+    const c = P.pclass[i];
+    if (c === 0) bound++; else if (c === 1) falling++; else if (c === 2) escaping++; else chaotic++;
   }
   $('stat-bound').textContent = bound;
   $('stat-falling').textContent = falling;
@@ -397,7 +561,10 @@ export function syncAllControlsFromState() {
   $('select-speed').value = String(state.speedMultiplier);
   $('spawn-amount').value = String(state.spawnAmount);
 
-  $('setting-trail-quality').value = state.trailQuality;
+  $('setting-render-quality').value = state.renderQuality;
+  $('collision-mode').value = state.collisionMode;
+  $('gravity-overlay').checked = state.gravityOverlay;
+  $('btn-cam-follow').classList.toggle('active-toggle', state.followBody);
   $('setting-particle-density').value = state.particleDensityPref;
   $('setting-motion-blur').checked = state.motionBlur;
   $('setting-reduced-motion').checked = state.reducedMotion;

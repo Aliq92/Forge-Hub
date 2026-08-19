@@ -47,11 +47,20 @@ export const state = {
   particleSize: 1,
   backgroundDensity: 1,
   motionBlur: false,
-  trailQuality: 'high', // 'standard' | 'high'
+  renderQuality: 'auto', // 'low' | 'medium' | 'high' | 'auto'
   particleDensityPref: 'medium', // 'low' | 'medium' | 'high'
 
   // physics behavior
   absorbMode: 'absorb', // 'absorb' | 'passthrough'
+  collisionMode: 'merge', // 'ignore' | 'merge' | 'bounce' | 'destroy'
+
+  // camera / view
+  followBody: false,
+  cinematicMode: false,
+  gravityOverlay: false,
+
+  // random system generator
+  lastSeed: null,
 
   // accessibility / prefs
   reducedMotion: false,
@@ -93,7 +102,7 @@ const FAVORITES_KEY = 'orbitalBloom.favorites.v1';
 const PERSISTED_KEYS = [
   'trailLength', 'trailStyle', 'colorMode', 'particleBrightness', 'particleSize',
   'backgroundDensity', 'motionBlur', 'reducedMotion', 'showFPS', 'screenFlash',
-  'absorbMode', 'gravityStrength', 'trailQuality', 'particleDensityPref',
+  'absorbMode', 'gravityStrength', 'renderQuality', 'particleDensityPref', 'collisionMode',
 ];
 
 export function saveSettings() {
@@ -120,6 +129,26 @@ export function saveLastPreset(id) {
 }
 export function loadLastPreset() {
   try { return localStorage.getItem(PRESET_KEY); } catch (e) { return null; }
+}
+
+const SEED_KEY = 'orbitalBloom.lastSeed.v1';
+export function saveLastSeed(seed) {
+  try { localStorage.setItem(SEED_KEY, seed); } catch (e) {}
+}
+export function loadLastSeed() {
+  try { return localStorage.getItem(SEED_KEY); } catch (e) { return null; }
+}
+
+const SYSTEM_KEY = 'orbitalBloom.savedSystem.v1';
+export function saveSystemSnapshot(snapshot) {
+  try { localStorage.setItem(SYSTEM_KEY, JSON.stringify(snapshot)); return true; }
+  catch (e) { return false; }
+}
+export function loadSystemSnapshot() {
+  try {
+    const raw = localStorage.getItem(SYSTEM_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
 }
 
 export function saveFavorite(name, config) {

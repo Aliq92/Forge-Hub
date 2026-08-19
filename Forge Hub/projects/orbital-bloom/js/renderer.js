@@ -3,8 +3,11 @@ import { CONSTANTS, PALETTE, TRAIL_FADE, state, stats } from './config.js';
 import { attractors } from './attractors.js';
 import * as P from './particles.js';
 import { previewState } from './tools.js';
+import { accelAt } from './gravity.js';
 
 const BUCKETS = ['white', 'cyan', 'violet', 'gold', 'blue'];
+let fieldGrid = null;
+let fieldFrameCounter = 0;
 
 let canvas = null, ctx = null;
 let w = 0, h = 0, dpr = 1;
@@ -129,6 +132,26 @@ function bucketFor(i) {
       const sector = Math.floor(norm * 5) % 5;
       return ['cyan', 'violet', 'gold', 'blue', 'white'][sector];
     }
+    case 'bybody': {
+      const b = P.pbucket[i];
+      return b < BUCKETS.length ? BUCKETS[b] : (P.pseed[i] < 0.5 ? 'white' : 'cyan');
+    }
+    case 'energy': {
+      // negative energy = bound (cool), positive = unbound/escaping (hot)
+      const e = P.penergy[i];
+      if (e < -40000) return 'blue';
+      if (e < 0) return 'cyan';
+      if (e < 40000) return 'white';
+      return 'gold';
+    }
+    case 'distance': {
+      const d = P.pdist[i];
+      if (!isFinite(d)) return 'blue';
+      if (d < 90) return 'gold';
+      if (d < 220) return 'white';
+      if (d < 450) return 'cyan';
+      return 'blue';
+    }
     default:
       return P.pseed[i] < 0.055 ? 'gold' : (P.pseed[i] < 0.5 ? 'white' : 'cyan');
   }
@@ -139,7 +162,11 @@ function updateFpsAndQuality(dtReal) {
   if (frameTimes.length > 40) frameTimes.shift();
   const avg = frameTimes.reduce((s, v) => s + v, 0) / frameTimes.length;
   stats.fps = Math.round(1 / Math.max(avg, 0.0001));
-  lowQuality = state.trailQuality === 'standard' || (stats.fps < 26 && P.count > 2200);
+  const q = state.renderQuality;
+  if (q === 'low') lowQuality = true;
+  else if (q === 'medium') lowQuality = stats.fps < 32 && P.count > 1500;
+  else if (q === 'high') lowQuality = stats.fps < 18 && P.count > 3000; // emergency-only degrade
+  else lowQuality = stats.fps < 26 && P.count > 2200; // auto
 }
 
 export function render(camera, width, height, dtReal) {
@@ -160,6 +187,7 @@ export function render(camera, width, height, dtReal) {
   }
 
   drawBackground(camera, width, height);
+  if (state.gravityOverlay) drawGravityField(camera, width, height);
   drawAttractorTrails(camera, width, height);
   drawAttractors(camera, width, height);
   drawParticles(camera, width, height);
@@ -202,11 +230,50 @@ function drawBackground(camera, width, height) {
   ctx.restore();
 }
 
+function drawGravityField(camera, width, height) {
+  const g = CONSTANTS.G_DEFAULT * state.gravityStrength;
+  const cols = 14, rows = 9;
+  fieldFrameCounter++;
+  if (!fieldGrid || fieldFrameCounter % 4 === 0) {
+    fieldGrid = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const sx = (c + 0.5) / cols * width;
+        const sy = (r + 0.5) / rows * height;
+        const [wx, wy] = camera.screenToWorld(sx, sy, width, height);
+        const [ax, ay] = accelAt(wx, wy, g);
+        fieldGrid.push({ sx, sy, ax, ay });
+      }
+    }
+  }
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = hexAlpha(PALETTE.violet, 0.3);
+  ctx.lineWidth = 1.2;
+  for (const p of fieldGrid) {
+    const mag = Math.hypot(p.ax, p.ay);
+    if (mag < 0.0002) continue;
+    const len = Math.min(6 + Math.log10(1 + mag * 400) * 10, 34);
+    const ang = Math.atan2(p.ay, p.ax);
+    const ex = p.sx + Math.cos(ang) * len;
+    const ey = p.sy + Math.sin(ang) * len;
+    ctx.beginPath();
+    ctx.moveTo(p.sx, p.sy);
+    ctx.lineTo(ex, ey);
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - Math.cos(ang - 0.4) * 4, ey - Math.sin(ang - 0.4) * 4);
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - Math.cos(ang + 0.4) * 4, ey - Math.sin(ang + 0.4) * 4);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawAttractorTrails(camera, width, height) {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (const a of attractors) {
-    if (a.fixed || a.trail.length < 4 || state.reducedMotion) continue;
+    if (a.fixed || a.showTrail === false || a.trail.length < 4 || state.reducedMotion) continue;
     ctx.strokeStyle = hexAlpha(PALETTE[a.color] || PALETTE.white, 0.35);
     ctx.lineWidth = 1.4;
     ctx.beginPath();
@@ -305,6 +372,7 @@ function drawParticles(camera, width, height) {
       const speed = Math.hypot(vx, vy);
       const ang = speed > 1 ? Math.atan2(vy, vx) : 0;
       const stretch = Math.min(1 + speed / 220, 3.2);
+      ctx.globalAlpha = Math.min(ctx.globalAlpha * (1 + Math.min(speed / 500, 1) * 0.5), 1);
       ctx.save();
       ctx.translate(sx, sy);
       ctx.rotate(ang);
@@ -312,7 +380,23 @@ function drawParticles(camera, width, height) {
       ctx.drawImage(sprite, -size * stretch / 2, -size / 2, size * stretch, size);
       ctx.restore();
     } else {
-      ctx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size);
+      // soft (default): velocity-adaptive — fast particles stretch into a brighter
+      // streak with the bright head leading; slow particles stay small round dots
+      // and rely on the trail fade-buffer to trace out smooth curved arcs.
+      const speedT = Math.min(P.pspeed[i] / 500, 1);
+      ctx.globalAlpha = Math.min(ctx.globalAlpha * (1 + speedT * 0.45), 1);
+      if (speedT > 0.05) {
+        const ang = Math.atan2(P.pvy[i], P.pvx[i]);
+        const stretch = 1 + speedT * 1.1;
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(ang);
+        ctx.translate(-size * (stretch - 1) * 0.5, 0);
+        ctx.drawImage(sprite, -size * stretch / 2, -size / 2, size * stretch, size);
+        ctx.restore();
+      } else {
+        ctx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size);
+      }
     }
   }
   ctx.restore();
@@ -357,10 +441,19 @@ function drawPreview(camera, width, height) {
     ctx.stroke();
     ctx.setLineDash([]);
     if (pv.dirX !== undefined) {
-      ctx.strokeStyle = hexAlpha(PALETTE.gold, 0.85);
+      const ex = sx + pv.dirX * camera.zoom, ey = sy + pv.dirY * camera.zoom;
+      const ang = Math.atan2(pv.dirY, pv.dirX);
+      ctx.strokeStyle = hexAlpha(PALETTE.gold, 0.9);
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(sx, sy);
-      ctx.lineTo(sx + pv.dirX * camera.zoom, sy + pv.dirY * camera.zoom);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - Math.cos(ang - 0.45) * 14, ey - Math.sin(ang - 0.45) * 14);
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - Math.cos(ang + 0.45) * 14, ey - Math.sin(ang + 0.45) * 14);
       ctx.stroke();
     }
   } else if (pv.kind === 'velocity') {

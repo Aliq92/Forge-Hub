@@ -33,6 +33,8 @@ export function createAttractor(type, x, y, overrides = {}) {
     radius: massToRadius(mass, type),
     color: def.color,
     fixed: overrides.fixed !== undefined ? overrides.fixed : !!def.fixed,
+    color: overrides.color || def.color,
+    showTrail: overrides.showTrail !== undefined ? overrides.showTrail : true,
     trail: [],
     flash: 0,
     nearbyCount: 0,
@@ -44,6 +46,17 @@ export function createAttractor(type, x, y, overrides = {}) {
 export function removeAttractor(id) {
   const i = attractors.findIndex(a => a.id === id);
   if (i >= 0) attractors.splice(i, 1);
+}
+
+export function duplicateAttractor(id, offset = 30) {
+  const src = getAttractor(id);
+  if (!src) return null;
+  const copy = createAttractor(src.type, src.x + offset, src.y + offset, {
+    mass: src.mass, vx: src.vx, vy: src.vy, fixed: src.fixed,
+    color: src.color, showTrail: src.showTrail, name: `${src.name} copy`,
+  });
+  copy.radius = src.radius;
+  return copy;
 }
 
 export function getAttractor(id) {

@@ -3,6 +3,11 @@ import { state, clamp } from './config.js';
 import { createAttractor, attractors, removeAttractor, nearestAttractor } from './attractors.js';
 import * as P from './particles.js';
 
+function bucketNear(wx, wy, maxDist = 380) {
+  const a = nearestAttractor(wx, wy, maxDist);
+  return a ? P.bucketIndexForColor(a.color) : undefined;
+}
+
 // Read by renderer.js to draw live drag previews (radius circles, velocity arrows, etc.)
 export const previewState = { active: false, kind: null };
 
@@ -11,6 +16,11 @@ let nextEmitterId = 1;
 
 let cam = null;
 let canvasEl = null;
+
+// Multi-touch pinch-to-zoom tracking (keyed by pointerId)
+const activePointers = new Map();
+let pinchActive = false;
+let pinchLastDist = null;
 
 const pointer = {
   down: false, mode: null,
@@ -27,6 +37,7 @@ export function initTools(canvasElement, cameraRef) {
   canvasEl.addEventListener('pointerdown', onPointerDown);
   window.addEventListener('pointermove', onPointerMove);
   window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerUp);
   canvasEl.addEventListener('wheel', onWheel, { passive: false });
   canvasEl.addEventListener('contextmenu', (e) => e.preventDefault());
   canvasEl.addEventListener('dblclick', onDoubleClick);
@@ -58,6 +69,22 @@ function dispatchSelection(id) {
 function onPointerDown(e) {
   if (e.target !== canvasEl) return;
   const { sx, sy, wx, wy } = rectAndWorld(e);
+
+  if (e.pointerType === 'touch') {
+    activePointers.set(e.pointerId, { x: sx, y: sy });
+    if (activePointers.size >= 2) {
+      // A second finger just touched down: abandon any in-progress single-touch
+      // tool action and switch to pinch-zoom for the duration of the gesture.
+      pointer.down = false;
+      pointer.mode = null;
+      previewState.active = false;
+      pinchActive = true;
+      const pts = [...activePointers.values()];
+      pinchLastDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      return;
+    }
+  }
+
   pointer.down = true;
   pointer.startX = wx; pointer.startY = wy;
   pointer.curX = wx; pointer.curY = wy;
@@ -88,7 +115,15 @@ function onPointerDown(e) {
     pointer.mode = fixed ? 'idle' : 'placeVelocity';
     pointer.target = a;
     dispatchSelection(a.id);
-  } else if (tool === 'cloud' || tool === 'ring' || tool === 'disc' || tool === 'jet') {
+  } else if (tool === 'point') {
+    const n = Math.round(clamp(state.spawnAmount / 10, 8, 150));
+    P.spawnPattern({
+      cx: wx, cy: wy, count: n, mode: 'disc',
+      radius: 14, spread: 0.5, spin: 0, speed: 12,
+      colorBucket: bucketNear(wx, wy),
+    });
+    pointer.mode = 'idle';
+  } else if (tool === 'cloud' || tool === 'ring' || tool === 'disc' || tool === 'jet' || tool === 'stream') {
     pointer.mode = 'spawn';
     pointer.spawnKind = tool;
     previewState.active = true;
@@ -109,9 +144,26 @@ function onPointerDown(e) {
 }
 
 function onPointerMove(e) {
-  if (!pointer.down) return;
   const rect = canvasEl.getBoundingClientRect();
   const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+
+  if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x: sx, y: sy });
+
+  if (pinchActive) {
+    if (activePointers.size >= 2) {
+      const pts = [...activePointers.values()];
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const midX = (pts[0].x + pts[1].x) / 2, midY = (pts[0].y + pts[1].y) / 2;
+      if (pinchLastDist && dist > 0) {
+        const factor = clamp(dist / pinchLastDist, 0.85, 1.18);
+        cam.zoomAt(midX, midY, factor, rect.width, rect.height);
+      }
+      pinchLastDist = dist;
+    }
+    return;
+  }
+
+  if (!pointer.down) return;
   const [wx, wy] = cam.screenToWorld(sx, sy, rect.width, rect.height);
   pointer.curX = wx; pointer.curY = wy;
   pointer.moveHistory.push({ x: wx, y: wy, t: performance.now() });
@@ -133,7 +185,7 @@ function onPointerMove(e) {
       const dx = wx - pointer.startX, dy = wy - pointer.startY;
       const r = Math.hypot(dx, dy);
       previewState.radius = Math.max(r, 8);
-      if (pointer.spawnKind === 'jet') {
+      if (pointer.spawnKind === 'jet' || pointer.spawnKind === 'stream') {
         previewState.dirX = dx; previewState.dirY = dy;
       } else {
         previewState.dirX = undefined;
@@ -156,7 +208,13 @@ function onPointerMove(e) {
   pointer.lastScreenX = sx; pointer.lastScreenY = sy;
 }
 
-function onPointerUp() {
+function onPointerUp(e) {
+  if (e && activePointers.has(e.pointerId)) activePointers.delete(e.pointerId);
+  if (pinchActive) {
+    if (activePointers.size < 2) { pinchActive = false; pinchLastDist = null; }
+    return;
+  }
+
   switch (pointer.mode) {
     case 'placeVelocity': {
       const a = pointer.target;
@@ -204,6 +262,7 @@ function onDoubleClick(e) {
     count: Math.min(state.spawnAmount, 500),
     mode: 'disc', radius: 55, spread: 0.4,
     spin: 0, speed: 140,
+    colorBucket: bucketNear(wx, wy),
   });
 }
 
@@ -248,18 +307,22 @@ function doSpawn() {
   const dx = pointer.curX - pointer.startX, dy = pointer.curY - pointer.startY;
   const dragLen = Math.hypot(dx, dy);
   const kind = pointer.spawnKind;
-  const mode = kind === 'cloud' ? state.spawnMode : kind;
+  const isDirectional = kind === 'jet' || kind === 'stream';
+  const mode = kind === 'cloud' ? state.spawnMode : (kind === 'stream' ? 'jet' : kind);
 
   const opts = {
     cx: pointer.startX, cy: pointer.startY,
     count: state.spawnAmount,
     mode,
-    radius: kind === 'jet' ? Math.max(state.spawnRadius * 0.35, 20) : Math.max(dragLen, state.spawnRadius * 0.4, 24),
+    radius: kind === 'jet' ? Math.max(state.spawnRadius * 0.35, 20)
+      : kind === 'stream' ? Math.max(state.spawnRadius * 0.6, 34)
+      : Math.max(dragLen, state.spawnRadius * 0.4, 24),
     spread: state.spawnSpread,
     spin: state.spawnSpin,
-    speed: kind === 'jet' ? clamp(dragLen * 2.2, 60, 900) : state.spawnSpeed,
-    angle: kind === 'jet' ? Math.atan2(dy, dx) : 0,
-    coneSpread: 0.4,
+    speed: isDirectional ? clamp(dragLen * (kind === 'jet' ? 2.2 : 1.5), 60, 900) : state.spawnSpeed,
+    angle: isDirectional ? Math.atan2(dy, dx) : 0,
+    coneSpread: kind === 'stream' ? 0.7 : 0.4,
+    colorBucket: bucketNear(pointer.startX, pointer.startY),
   };
 
   if (state.continuousStream) {
@@ -268,6 +331,7 @@ function doSpawn() {
       x: opts.cx, y: opts.cy, mode: opts.mode,
       radius: opts.radius, spread: opts.spread, spin: opts.spin,
       speed: opts.speed, angle: opts.angle, coneSpread: opts.coneSpread,
+      colorBucket: opts.colorBucket,
       rate: Math.max(state.spawnAmount / 3, 12),
       acc: 0,
     });
@@ -285,6 +349,7 @@ export function tickEmitters(dt) {
         cx: em.x, cy: em.y, count: 1, mode: em.mode,
         radius: em.radius, spread: em.spread, spin: em.spin,
         speed: em.speed, angle: em.angle, coneSpread: em.coneSpread,
+        colorBucket: em.colorBucket,
       });
     }
   }

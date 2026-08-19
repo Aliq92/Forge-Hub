@@ -1,8 +1,8 @@
 // Orbital Bloom - hand-tuned presets. Each produces an immediately beautiful structure.
-import { CONSTANTS, state, stats, saveLastPreset } from './config.js';
-import { clearAttractors, createAttractor } from './attractors.js';
+import { CONSTANTS, PALETTE, state, stats, saveLastPreset, clamp } from './config.js';
+import { attractors, clearAttractors, createAttractor } from './attractors.js';
 import * as P from './particles.js';
-import { clearTrails } from './renderer.js';
+import { clearTrails, triggerFlash } from './renderer.js';
 import { clearEmitters } from './tools.js';
 
 const G = CONSTANTS.G_DEFAULT;
@@ -13,13 +13,14 @@ function beginPreset() {
   clearEmitters();
   clearTrails();
   state.gravityStrength = 1;
+  state.collisionMode = 'merge';
   state.selectedAttractorId = null;
   stats.absorbedCount = 0;
   stats.simTime = 0;
 }
 
 function spawnKeplerianAnnulus(cx, cy, count, innerR, outerR, centralMass, opts = {}) {
-  const { spread = 0.15, dir = 1, speedScale = 1 } = opts;
+  const { spread = 0.15, dir = 1, speedScale = 1, colorBucket = 255 } = opts;
   for (let i = 0; i < count; i++) {
     const r = innerR + Math.random() * (outerR - innerR);
     const theta = Math.random() * Math.PI * 2;
@@ -33,9 +34,11 @@ function spawnKeplerianAnnulus(cx, cy, count, innerR, outerR, centralMass, opts 
     let vx = tx * vCirc * jitter, vy = ty * vCirc * jitter;
     vx += nx * (Math.random() - 0.5) * vCirc * 0.05;
     vy += ny * (Math.random() - 0.5) * vCirc * 0.05;
-    P.spawnParticle(x, y, vx, vy, -1);
+    P.spawnParticle(x, y, vx, vy, -1, colorBucket);
   }
 }
+
+const BUCKET_IDX = { white: 0, cyan: 1, violet: 2, gold: 3, blue: 4 };
 
 function twoBodyVelocity(mass1, mass2, separation) {
   const mTotal = mass1 + mass2;
@@ -61,8 +64,8 @@ const PRESETS = {
     label: 'Accretion Disc',
     build(camera) {
       beginPreset();
-      createAttractor('heavyCore', 0, 0, { mass: 42000, fixed: true, name: 'Core' });
-      spawnKeplerianAnnulus(0, 0, 2400, 95, 480, 42000, { spread: 0.2, speedScale: 0.99 });
+      const core = createAttractor('heavyCore', 0, 0, { mass: 42000, fixed: true, name: 'Core' });
+      spawnKeplerianAnnulus(0, 0, 2400, 95, 480, 42000, { spread: 0.2, speedScale: 0.99, colorBucket: BUCKET_IDX[core.color] });
       camera.fitBounds(-540, -540, 540, 540, camera._vw || 1200, camera._vh || 800);
     },
   },
@@ -121,13 +124,19 @@ const PRESETS = {
     label: 'Gravity Slingshot',
     build(camera) {
       beginPreset();
-      createAttractor('heavyCore', 90, -30, { mass: 22000, fixed: true, name: 'Slingshot Mass' });
+      const body = createAttractor('heavyCore', 90, -30, { mass: 22000, fixed: true, name: 'Slingshot Mass' });
       const origin = { x: -680, y: -260 };
-      const aim = { x: 520, y: 70 };
-      const angle = Math.atan2(aim.y - origin.y, aim.x - origin.x);
+      // Aim so the stream's closest approach clears the absorption radius with
+      // comfortable margin — a tight beam that bends dramatically but survives.
+      const toBody = { x: body.x - origin.x, y: body.y - origin.y };
+      const distToBody = Math.hypot(toBody.x, toBody.y);
+      const baseAngle = Math.atan2(toBody.y, toBody.x);
+      const missDistance = body.radius * 6;
+      const offsetAngle = Math.asin(clamp(missDistance / distToBody, -0.9, 0.9));
+      const angle = baseAngle - offsetAngle;
       P.spawnPattern({
         cx: origin.x, cy: origin.y, count: 500, mode: 'jet',
-        radius: 30, spread: 0.15, speed: 380, angle, coneSpread: 0.05,
+        radius: 20, spread: 0.05, speed: 380, angle, coneSpread: 0.015,
       });
       state.continuousStream = false;
       camera.fitBounds(-720, -420, 620, 420, camera._vw || 1200, camera._vh || 800);
@@ -138,8 +147,8 @@ const PRESETS = {
     label: 'Galaxy Seed',
     build(camera) {
       beginPreset();
-      createAttractor('heavyCore', 0, 0, { mass: 52000, fixed: true, name: 'Galactic Core' });
-      spawnKeplerianAnnulus(0, 0, 2800, 45, 620, 52000, { spread: 0.24, speedScale: 0.93 });
+      const core = createAttractor('heavyCore', 0, 0, { mass: 52000, fixed: true, name: 'Galactic Core' });
+      spawnKeplerianAnnulus(0, 0, 2800, 45, 620, 52000, { spread: 0.24, speedScale: 0.93, colorBucket: BUCKET_IDX[core.color] });
       camera.fitBounds(-680, -680, 680, 680, camera._vw || 1200, camera._vh || 800);
     },
   },
@@ -165,16 +174,105 @@ const PRESETS = {
       beginPreset();
       createAttractor('star', 0, 0, { mass: 14000, fixed: true, name: 'Central Star' });
       spawnKeplerianAnnulus(0, 0, 1300, 60, 260, 14000, { spread: 0.05, speedScale: 1 });
-      const intruders = [
-        { x: -560, y: -120, vx: 150, vy: 40 },
-        { x: 600, y: 180, vx: -140, vy: -60 },
-        { x: 60, y: -640, vx: 10, vy: 190 },
+      // Each intruder is aimed with a deliberate impact parameter so it swings
+      // through the ring band and perturbs it, rather than diving straight
+      // into the star and merging before it ever reaches the ring.
+      const intruderDefs = [
+        { startAngle: 200, impact: 290, speed: 205, side: 1 },
+        { startAngle: 35, impact: 310, speed: 195, side: -1 },
+        { startAngle: 300, impact: 270, speed: 220, side: 1 },
       ];
-      intruders.forEach((it, i) => {
-        const a = createAttractor('planet', it.x, it.y, { mass: 4200, name: `Intruder ${i + 1}` });
-        a.vx = it.vx; a.vy = it.vy;
+      intruderDefs.forEach((d, i) => {
+        const startDist = 620;
+        const rad = (d.startAngle * Math.PI) / 180;
+        const sx = Math.cos(rad) * startDist, sy = Math.sin(rad) * startDist;
+        const towardAngle = Math.atan2(-sy, -sx);
+        const offsetAngle = Math.asin(clamp(d.impact / startDist, -0.9, 0.9)) * d.side;
+        const angle = towardAngle + offsetAngle;
+        const a = createAttractor('planet', sx, sy, { mass: 4200, name: `Intruder ${i + 1}` });
+        a.vx = Math.cos(angle) * d.speed;
+        a.vy = Math.sin(angle) * d.speed;
       });
       camera.fitBounds(-660, -660, 660, 660, camera._vw || 1200, camera._vh || 800);
+    },
+  },
+
+  collapsingCluster: {
+    label: 'Collapsing Cluster',
+    build(camera) {
+      beginPreset();
+      const centers = [
+        { x: -260, y: -140, mass: 8000, color: 'gold' },
+        { x: 240, y: -80, mass: 6500, color: 'cyan' },
+        { x: -40, y: 260, mass: 7200, color: 'violet' },
+      ];
+      const bodies = centers.map((c, i) => createAttractor('star', c.x, c.y, { mass: c.mass, name: `Mass ${i + 1}` }));
+      // loosely distributed particles around each mass with a partial tangential
+      // component — enough angular momentum to spiral in gradually and watchably
+      // rather than free-falling straight to the center in under a second.
+      bodies.forEach((a, i) => {
+        for (let k = 0; k < 700; k++) {
+          const r = Math.sqrt(Math.random()) * 220 + 40;
+          const theta = Math.random() * Math.PI * 2;
+          const x = a.x + Math.cos(theta) * r, y = a.y + Math.sin(theta) * r;
+          const vCirc = Math.sqrt((G * a.mass) / r) * 0.45;
+          const nx = Math.cos(theta), ny = Math.sin(theta);
+          const tx = -ny, ty = nx;
+          P.spawnParticle(x, y, tx * vCirc, ty * vCirc, -1, BUCKET_IDX[centers[i].color]);
+        }
+      });
+      camera.fitBounds(-560, -460, 560, 560, camera._vw || 1200, camera._vh || 800);
+    },
+  },
+
+  supermassiveCore: {
+    label: 'Supermassive Core',
+    build(camera) {
+      beginPreset();
+      const core = createAttractor('heavyCore', 0, 0, { mass: 90000, fixed: true, name: 'Supermassive Core' });
+      // two-tier disc: a tight, blazing-fast inner ring and a slow, wide outer structure
+      spawnKeplerianAnnulus(0, 0, 900, 40, 90, 90000, { spread: 0.08, speedScale: 1, colorBucket: BUCKET_IDX.gold });
+      spawnKeplerianAnnulus(0, 0, 2200, 160, 560, 90000, { spread: 0.2, speedScale: 0.97, colorBucket: BUCKET_IDX[core.color] });
+      camera.fitBounds(-620, -620, 620, 620, camera._vw || 1200, camera._vh || 800);
+    },
+  },
+
+  doubleDisc: {
+    label: 'Double Disc',
+    build(camera) {
+      beginPreset();
+      const m = 11000, D = 260;
+      const v = twoBodyVelocity(m, m, D);
+      const a1 = createAttractor('star', -D / 2, 0, { mass: m, name: 'Disc A', color: 'gold' });
+      const a2 = createAttractor('star', D / 2, 0, { mass: m, name: 'Disc B', color: 'cyan' });
+      a1.vy = v.v1; a2.vy = -v.v2;
+      // same rotation direction on both — the discs interact tidally rather than shearing past each other
+      spawnKeplerianAnnulus(-D / 2, 0, 1100, 22, 165, m, { spread: 0.12, dir: 1, speedScale: 1, colorBucket: BUCKET_IDX.gold });
+      spawnKeplerianAnnulus(D / 2, 0, 1100, 22, 165, m, { spread: 0.12, dir: 1, speedScale: 1, colorBucket: BUCKET_IDX.cyan });
+      camera.fitBounds(-480, -380, 480, 380, camera._vw || 1200, camera._vh || 800);
+    },
+  },
+
+  voidPassage: {
+    label: 'Void Passage',
+    build(camera) {
+      beginPreset();
+      const field = [
+        { x: -60, y: -180, mass: 9000, type: 'star' },
+        { x: 180, y: 60, mass: 14000, type: 'heavyCore' },
+        { x: -220, y: 220, mass: 6000, type: 'planet' },
+        { x: 340, y: -220, mass: 7500, type: 'star' },
+      ];
+      field.forEach((f, i) => createAttractor(f.type, f.x, f.y, { mass: f.mass, fixed: true, name: `Field ${i + 1}` }));
+      const origin = { x: -900, y: -420 };
+      const aim = { x: 900, y: 320 };
+      const angle = Math.atan2(aim.y - origin.y, aim.x - origin.x);
+      P.spawnPattern({
+        cx: origin.x, cy: origin.y, count: 900, mode: 'jet',
+        radius: 26, spread: 0.1, speed: 420, angle, coneSpread: 0.04,
+        colorBucket: BUCKET_IDX.cyan,
+      });
+      camera.fitBounds(-940, -480, 940, 480, camera._vw || 1200, camera._vh || 800);
     },
   },
 };
@@ -190,6 +288,10 @@ export function loadPreset(id, camera) {
   camera._vh = camera._vh || window.innerHeight;
   p.build(camera);
   saveLastPreset(id);
+  if (id !== 'emptySpace' && attractors.length > 0) {
+    const anchor = attractors.reduce((best, a) => (a.mass > best.mass ? a : best), attractors[0]);
+    triggerFlash(anchor.x, anchor.y, PALETTE[anchor.color] || PALETTE.white, anchor.radius * 5);
+  }
   window.dispatchEvent(new CustomEvent('ob:preset-loaded', { detail: { id } }));
   return true;
 }

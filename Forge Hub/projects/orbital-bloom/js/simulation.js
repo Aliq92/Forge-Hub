@@ -25,11 +25,31 @@ function onAttractorMerge(survivor, x, y) {
   });
 }
 
+function onAttractorBounce(a, b, x, y) {
+  Renderer.triggerFlash(x, y, PALETTE[a.color] || PALETTE.white, Math.max(a.radius, b.radius) * 2.2);
+}
+
+function onAttractorDestroy(survivor, x, y, doomedColor) {
+  Renderer.triggerFlash(x, y, PALETTE[doomedColor] || PALETTE.violet, survivor.radius * 2.8);
+  P.spawnPattern({
+    cx: x, cy: y, count: 90, mode: 'disc',
+    radius: survivor.radius * 3, spread: 0.9, spin: 0, speed: 220,
+  });
+}
+
+function onSlingshotEvent(x, y) {
+  Renderer.triggerFlash(x, y, PALETTE.cyan, 60);
+}
+
 export function physicsStep(dt) {
   const g = CONSTANTS.G_DEFAULT * state.gravityStrength;
   Gravity.stepAttractors(dt, g);
-  Gravity.handleAttractorCollisions(onAttractorMerge);
-  Gravity.stepParticles(dt, g);
+  Gravity.handleAttractorCollisions({
+    onMerge: onAttractorMerge,
+    onBounce: onAttractorBounce,
+    onDestroy: onAttractorDestroy,
+  });
+  Gravity.stepParticles(dt, g, onSlingshotEvent);
   tickEmitters(dt);
   stats.simTime += dt;
   updateChallenge();
@@ -53,6 +73,15 @@ export function startLoop() {
       const steps = sm <= 1 ? 1 : Math.round(sm);
       const dtPerStep = CONSTANTS.BASE_DT * (sm / steps);
       for (let i = 0; i < steps; i++) physicsStep(dtPerStep);
+    }
+
+    if (state.followBody && state.selectedAttractorId != null && !camera._animT) {
+      const a = attractors.find(a => a.id === state.selectedAttractorId);
+      if (a) {
+        const followLerp = 1 - Math.pow(0.0025, dtReal);
+        camera.x += (a.x - camera.x) * followLerp;
+        camera.y += (a.y - camera.y) * followLerp;
+      }
     }
 
     camera._vw = canvas.clientWidth;

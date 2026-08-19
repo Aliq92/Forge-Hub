@@ -66,7 +66,11 @@ export function stepAttractors(dt, g) {
   }
 }
 
-export function handleAttractorCollisions(onMerge) {
+export function handleAttractorCollisions(callbacks = {}) {
+  const mode = state.collisionMode || 'merge';
+  if (mode === 'ignore') return;
+  const { onMerge, onBounce, onDestroy } = callbacks;
+
   for (let i = attractors.length - 1; i >= 0; i--) {
     for (let j = i - 1; j >= 0; j--) {
       const a = attractors[i], b = attractors[j];
@@ -74,14 +78,16 @@ export function handleAttractorCollisions(onMerge) {
       const dx = a.x - b.x, dy = a.y - b.y;
       const dist = Math.hypot(dx, dy);
       if (dist < (a.radius + b.radius) * 0.72) {
-        mergeAttractors(a, b, i, j, onMerge);
+        if (mode === 'bounce') bounceAttractors(a, b, dist, dx, dy, onBounce);
+        else if (mode === 'destroy') destroyAttractors(a, b, onDestroy);
+        else mergeAttractors(a, b, onMerge);
         break;
       }
     }
   }
 }
 
-function mergeAttractors(a, b, i, j, onMerge) {
+function mergeAttractors(a, b, onMerge) {
   const totalMass = a.mass + b.mass;
   const nx = (a.x * a.mass + b.x * b.mass) / totalMass;
   const ny = (a.y * a.mass + b.y * b.mass) / totalMass;
@@ -106,10 +112,50 @@ function mergeAttractors(a, b, i, j, onMerge) {
   if (onMerge) onMerge(survivor, nx, ny);
 }
 
-export function stepParticles(dt, g) {
+function bounceAttractors(a, b, dist, dx, dy, onBounce) {
+  const d = Math.max(dist, 0.001);
+  const nx = dx / d, ny = dy / d;
+  const overlap = (a.radius + b.radius) * 0.72 - d;
+
+  if (!a.fixed && !b.fixed) {
+    a.x += nx * overlap * 0.5; a.y += ny * overlap * 0.5;
+    b.x -= nx * overlap * 0.5; b.y -= ny * overlap * 0.5;
+  } else if (!a.fixed) { a.x += nx * overlap; a.y += ny * overlap; }
+  else if (!b.fixed) { b.x -= nx * overlap; b.y -= ny * overlap; }
+
+  const rvx = a.vx - b.vx, rvy = a.vy - b.vy;
+  const velAlongNormal = rvx * nx + rvy * ny;
+  if (velAlongNormal < 0) {
+    const restitution = 0.72;
+    const invMassA = a.fixed ? 0 : 1 / a.mass, invMassB = b.fixed ? 0 : 1 / b.mass;
+    const invSum = invMassA + invMassB;
+    if (invSum > 0) {
+      const j = -(1 + restitution) * velAlongNormal / invSum;
+      a.vx += j * invMassA * nx; a.vy += j * invMassA * ny;
+      b.vx -= j * invMassB * nx; b.vy -= j * invMassB * ny;
+    }
+  }
+  a.flash = Math.max(a.flash, 0.6);
+  b.flash = Math.max(b.flash, 0.6);
+  if (onBounce) onBounce(a, b, (a.x + b.x) / 2, (a.y + b.y) / 2);
+}
+
+function destroyAttractors(a, b, onDestroy) {
+  const survivor = a.mass >= b.mass ? a : b;
+  const doomed = survivor === a ? b : a;
+  survivor.flash = 1;
+  const idx = attractors.indexOf(doomed);
+  if (idx >= 0) attractors.splice(idx, 1);
+  if (onDestroy) onDestroy(survivor, doomed.x, doomed.y, doomed.color);
+}
+
+let slingshotCooldown = 0;
+
+export function stepParticles(dt, g, onSlingshot) {
   const n = attractors.length;
   const absorb = state.absorbMode === 'absorb';
-  const overlay = state.classificationOverlay;
+  slingshotCooldown = Math.max(0, slingshotCooldown - dt);
+  const slingshotThreshold = CONSTANTS.MAX_PARTICLE_SPEED * 0.62;
 
   for (let i = P.count - 1; i >= 0; i--) {
     P.pPrevX[i] = P.px[i];
@@ -119,7 +165,7 @@ export function stepParticles(dt, g) {
     let absorbed = false;
     let strongCount = 0;
     let maxForce = 0, secondForce = 0;
-    let dominantDist = Infinity, dominantMass = 0;
+    let dominantDist = Infinity, dominantMass = 0, dominantDx = 0, dominantDy = 0;
 
     for (let k = 0; k < n; k++) {
       const a = attractors[k];
@@ -140,8 +186,11 @@ export function stepParticles(dt, g) {
       const gAtPoint = g * a.mass * invDist * invDist;
       if (gAtPoint > localG) localG = gAtPoint;
 
-      if (gAtPoint > maxForce) { secondForce = maxForce; maxForce = gAtPoint; dominantDist = dist; dominantMass = a.mass; }
-      else if (gAtPoint > secondForce) secondForce = gAtPoint;
+      if (gAtPoint > maxForce) {
+        secondForce = maxForce; maxForce = gAtPoint;
+        dominantDist = dist; dominantMass = a.mass;
+        dominantDx = dx; dominantDy = dy;
+      } else if (gAtPoint > secondForce) secondForce = gAtPoint;
       if (gAtPoint > 0.02) strongCount++;
     }
 
@@ -169,7 +218,8 @@ export function stepParticles(dt, g) {
     }
 
     P.page[i] += dt;
-    P.pspeed[i] = Math.hypot(P.pvx[i], P.pvy[i]);
+    const finalSpeed = Math.hypot(P.pvx[i], P.pvy[i]);
+    P.pspeed[i] = finalSpeed;
     P.pgrav[i] = localG;
 
     if (P.plife[i] >= 0 && P.page[i] > P.plife[i]) {
@@ -177,18 +227,27 @@ export function stepParticles(dt, g) {
       continue;
     }
 
-    if (overlay) {
-      if (dominantMass > 0) {
-        const vEsc = Math.sqrt(2 * g * dominantMass / Math.max(dominantDist, 1));
-        if (secondForce > maxForce * 0.35 && strongCount >= 2) P.pclass[i] = 3; // chaotic
-        else if (P.pspeed[i] > vEsc * 1.05) P.pclass[i] = 2; // escaping
-        else {
-          const dx = P.px[i] - (dominantDist > 0 ? 0 : 0);
-          P.pclass[i] = 0;
-        }
-      } else {
-        P.pclass[i] = 2;
+    if (dominantMass > 0) {
+      const safeDist = Math.max(dominantDist, CONSTANTS.SOFTENING);
+      P.pdist[i] = safeDist;
+      P.penergy[i] = 0.5 * finalSpeed * finalSpeed - (g * dominantMass) / safeDist;
+
+      const vEsc = Math.sqrt(2 * g * dominantMass / safeDist);
+      const radialVel = (P.pvx[i] * dominantDx + P.pvy[i] * dominantDy) / safeDist;
+
+      if (secondForce > maxForce * 0.35 && strongCount >= 2) P.pclass[i] = 3; // chaotic
+      else if (finalSpeed > vEsc * 1.05) P.pclass[i] = 2; // escaping
+      else if (radialVel > finalSpeed * 0.55 && finalSpeed > 8) P.pclass[i] = 1; // falling
+      else P.pclass[i] = 0; // bound
+
+      if (onSlingshot && slingshotCooldown <= 0 && finalSpeed > slingshotThreshold && localG > 0.4) {
+        onSlingshot(P.px[i], P.py[i]);
+        slingshotCooldown = 2.5;
       }
+    } else {
+      P.pdist[i] = Infinity;
+      P.penergy[i] = 0.5 * finalSpeed * finalSpeed;
+      P.pclass[i] = 2;
     }
   }
 }

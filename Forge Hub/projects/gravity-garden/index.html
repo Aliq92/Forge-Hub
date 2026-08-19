@@ -55,6 +55,7 @@
     position: fixed;
     bottom: 0; left: 0; right: 0;
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     padding: 12px;
     padding-bottom: max(12px, env(safe-area-inset-bottom));
@@ -114,6 +115,8 @@
   <div class="btn" id="btnBurst">Burst</div>
   <div class="btn" id="btnClearParticles">Clear Particles</div>
   <div class="btn" id="btnReset">Reset Garden</div>
+  <div class="btn" id="btnPreset">Preset: Classic</div>
+  <div class="btn" id="btnSpeed">Speed 1x</div>
 </div>
 
 <script>
@@ -131,13 +134,13 @@
     canvas.style.width = W + 'px';
     canvas.style.height = H + 'px';
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    initStars();
   }
-  window.addEventListener('resize', resize);
-  resize();
 
   // ---- State ----
   const wells = [];       // {x, y, mass, r, pulsePhase}
   const particles = [];   // {x, y, vx, vy, trail: [...]}
+  const flashes = [];     // {x, y, r, maxR, alpha, age}
   const MAX_PARTICLES = 260;
   const G = 1400;          // gravity strength constant
   const SOFTEN = 26;        // softening radius to avoid singularities
@@ -145,6 +148,35 @@
   const TRAIL_LEN = 10;
 
   let wellCounter = 0;
+
+  // ---- Starfield ----
+  const STAR_COUNT = 90;
+  let stars = [];
+  function initStars(){
+    stars = [];
+    for (let i = 0; i < STAR_COUNT; i++){
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.1 + 0.3,
+        baseAlpha: Math.random() * 0.5 + 0.15,
+        twinklePhase: Math.random() * Math.PI * 2,
+        twinkleSpeed: 0.0006 + Math.random() * 0.0012
+      });
+    }
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---- Velocity-based color ----
+  function velocityColor(speed){
+    const t = Math.min(speed / 2.2, 1);
+    const r = Math.round(111 + (255 - 111) * t);
+    const g = Math.round(214 + (235 - 214) * t);
+    const b = Math.round(208 + (190 - 208) * t);
+    return `${r}, ${g}, ${b}`;
+  }
 
   function addWell(x, y){
     wells.push({
@@ -211,6 +243,7 @@
   function resetGarden(){
     wells.length = 0;
     particles.length = 0;
+    flashes.length = 0;
     updateStats();
   }
 
@@ -263,10 +296,46 @@
           particles.splice(i, 1);
           w.mass = Math.min(w.mass + 0.015, 3.2);
           w.r = 9 + (w.mass - 1) * 4;
+          flashes.push({x: w.x, y: w.y, r: 2, maxR: w.r * 2.2, alpha: 0.7, age: 0});
           break;
         }
       }
     }
+
+    // flash lifecycle
+    for (let i = flashes.length - 1; i >= 0; i--){
+      const f = flashes[i];
+      f.age += dt;
+      f.r += (f.maxR - f.r) * 0.15 * dt;
+      f.alpha -= 0.045 * dt;
+      if (f.alpha <= 0) flashes.splice(i, 1);
+    }
+  }
+
+  // drag two attract wells together to merge them into one, stronger well
+  function mergeWells(){
+    let merged = false;
+    for (let i = wells.length - 1; i >= 0; i--){
+      for (let j = i - 1; j >= 0; j--){
+        const a = wells[i], b = wells[j];
+        if (a.polarity < 0 || b.polarity < 0) continue;
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < (a.r + b.r) * 0.55){
+          const totalMass = a.mass + b.mass;
+          b.x = (b.x * b.mass + a.x * a.mass) / totalMass;
+          b.y = (b.y * b.mass + a.y * a.mass) / totalMass;
+          b.mass = Math.min(totalMass, 5.5);
+          b.r = 9 + (b.mass - 1) * 4;
+          flashes.push({x: b.x, y: b.y, r: 4, maxR: b.r * 3, alpha: 0.9, age: 0});
+          if (heldWell === a) heldWell = b;
+          wells.splice(i, 1);
+          merged = true;
+          break;
+        }
+      }
+    }
+    if (merged) updateStats();
   }
 
   // ---- Render ----
@@ -274,20 +343,41 @@
     ctx.fillStyle = 'rgba(5, 7, 13, 0.28)';
     ctx.fillRect(0, 0, W, H);
 
+    // starfield
+    for (const s of stars){
+      const tw = 0.5 + 0.5 * Math.sin(t * s.twinkleSpeed + s.twinklePhase);
+      const alpha = s.baseAlpha * (0.6 + 0.4 * tw);
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(207, 216, 227, ${alpha})`;
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     // particles + trails
     for (let p of particles){
+      const speed = Math.hypot(p.vx, p.vy);
+      const color = velocityColor(speed);
       for (let i = 0; i < p.trail.length; i++){
         const pt = p.trail[i];
         const alpha = (i / p.trail.length) * 0.35;
         ctx.beginPath();
-        ctx.fillStyle = `rgba(111, 214, 208, ${alpha})`;
+        ctx.fillStyle = `rgba(${color}, ${alpha})`;
         ctx.arc(pt.x, pt.y, 1.4, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.beginPath();
-      ctx.fillStyle = 'rgba(180, 235, 230, 0.95)';
+      ctx.fillStyle = `rgba(${color}, 0.95)`;
       ctx.arc(p.x, p.y, 2.1, 0, Math.PI * 2);
       ctx.fill();
+    }
+
+    // absorption / merge flashes
+    for (const f of flashes){
+      ctx.beginPath();
+      ctx.strokeStyle = `rgba(245, 217, 168, ${Math.max(f.alpha, 0)})`;
+      ctx.lineWidth = 1.5;
+      ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+      ctx.stroke();
     }
 
     // wells
@@ -330,11 +420,16 @@
     }
   }
 
+  const TIME_SCALES = [0.5, 1, 1.75, 3];
+  let timeScaleIdx = 1;
+
   let lastTime = performance.now();
   function loop(now){
-    const dt = Math.min((now - lastTime) / 16.6667, 2.5);
+    const rawDt = Math.min((now - lastTime) / 16.6667, 2.5);
     lastTime = now;
+    const dt = rawDt * TIME_SCALES[timeScaleIdx];
     step(dt);
+    mergeWells();
     render(now);
     requestAnimationFrame(loop);
   }
@@ -421,7 +516,86 @@
   document.getElementById('btnSeed').addEventListener('click', () => seedParticles(30));
   document.getElementById('btnBurst').addEventListener('click', burst);
   document.getElementById('btnClearParticles').addEventListener('click', clearParticles);
-  document.getElementById('btnReset').addEventListener('click', resetGarden);
+  document.getElementById('btnReset').addEventListener('click', () => applyPreset(presetIdx));
+
+  const btnPreset = document.getElementById('btnPreset');
+  btnPreset.addEventListener('click', () => applyPreset(presetIdx + 1));
+
+  const btnSpeed = document.getElementById('btnSpeed');
+  btnSpeed.addEventListener('click', () => {
+    timeScaleIdx = (timeScaleIdx + 1) % TIME_SCALES.length;
+    btnSpeed.textContent = `Speed ${TIME_SCALES[timeScaleIdx]}x`;
+  });
+
+  // ---- Presets ----
+  const PRESETS = [
+    {
+      name: 'Classic',
+      setup(){
+        addWell(W * 0.35, H * 0.5);
+        addWell(W * 0.65, H * 0.42);
+        seedParticles(50);
+      }
+    },
+    {
+      name: 'Binary',
+      setup(){
+        const cx = W / 2, cy = H / 2, sep = Math.min(W, H) * 0.16;
+        addWell(cx - sep, cy);
+        addWell(cx + sep, cy);
+        for (let i = 0; i < 70; i++){
+          const angle = Math.random() * Math.PI * 2;
+          const dist = sep * 1.8 + Math.random() * sep * 1.6;
+          const x = cx + Math.cos(angle) * dist;
+          const y = cy + Math.sin(angle) * dist;
+          const speed = 0.9 + Math.random() * 0.5;
+          const perp = angle + Math.PI / 2;
+          spawnParticle(x, y, Math.cos(perp) * speed, Math.sin(perp) * speed);
+        }
+        updateStats();
+      }
+    },
+    {
+      name: 'Rings',
+      setup(){
+        addWell(W / 2, H / 2);
+        const rings = [0.12, 0.22, 0.32];
+        rings.forEach((rf, ri) => {
+          const count = 26;
+          const dist = Math.min(W, H) * rf;
+          const speed = 1.6 - ri * 0.35;
+          for (let i = 0; i < count; i++){
+            const angle = (i / count) * Math.PI * 2;
+            const x = W / 2 + Math.cos(angle) * dist;
+            const y = H / 2 + Math.sin(angle) * dist;
+            const perp = angle + Math.PI / 2;
+            spawnParticle(x, y, Math.cos(perp) * speed, Math.sin(perp) * speed);
+          }
+        });
+        updateStats();
+      }
+    },
+    {
+      name: 'Chaos',
+      setup(){
+        for (let i = 0; i < 4; i++){
+          const x = W * 0.25 + Math.random() * W * 0.5;
+          const y = H * 0.25 + Math.random() * H * 0.5;
+          addWell(x, y);
+          if (Math.random() < 0.4) togglePolarity(wells[wells.length - 1]);
+        }
+        seedParticles(90);
+      }
+    }
+  ];
+  let presetIdx = 0;
+  function applyPreset(idx){
+    resetGarden();
+    presetIdx = ((idx % PRESETS.length) + PRESETS.length) % PRESETS.length;
+    PRESETS[presetIdx].setup();
+    btnPreset.textContent = `Preset: ${PRESETS[presetIdx].name}`;
+    updateStats();
+  }
 
   // ---- Intro hint ----
   const hint = document.getElementById('hint');
@@ -429,9 +603,7 @@
   setTimeout(() => hint.classList.remove('show'), 5500);
 
   // ---- Initial state ----
-  addWell(W * 0.35, H * 0.5);
-  addWell(W * 0.65, H * 0.42);
-  seedParticles(50);
+  applyPreset(0);
 
   requestAnimationFrame(loop);
 })();

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Bacteria Bloom — Colony Growth Simulator</title>
+<meta name="description" content="An interactive fictionalized petri-dish colony growth simulator. Place bacterial strains, feed them, and watch organic colonies bloom." />
+<meta name="theme-color" content="#0b0f0e" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%230b0f0e' stroke='%236fae9c' stroke-width='4'/%3E%3Ccircle cx='38' cy='42' r='14' fill='%23e0a94a' opacity='0.85'/%3E%3Ccircle cx='60' cy='58' r='10' fill='%237ec6c6' opacity='0.85'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div class="brand-text">
+        <span class="brand-title">Bacteria Bloom</span>
+        <span class="brand-sub">colony growth simulator</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="visualModeToggle" class="chip-btn" title="Cycle visual mode">Normal</button>
+      <button id="guideBtn" class="icon-btn" title="How to play" aria-label="Show guide">?</button>
+    </div>
+  </header>
+
+  <div class="main-layout">
+
+    <aside class="toolbar" id="toolbar" aria-label="Tools">
+      <div class="tool-row" id="toolRow">
+        <button class="tool-btn active" data-tool="inoculate"><span class="tool-icon icon-inoculate"></span><span>Inoculate</span></button>
+        <button class="tool-btn" data-tool="nutrient"><span class="tool-icon icon-nutrient"></span><span>Nutrient</span></button>
+        <button class="tool-btn" data-tool="inhibitor"><span class="tool-icon icon-inhibitor"></span><span>Inhibitor</span></button>
+        <button class="tool-btn" data-tool="erase"><span class="tool-icon icon-erase"></span><span>Erase</span></button>
+        <button class="tool-btn" data-tool="inspect"><span class="tool-icon icon-inspect"></span><span>Inspect</span></button>
+      </div>
+
+      <div class="tool-options" id="toolOptions"></div>
+    </aside>
+
+    <div class="dish-area">
+      <div class="dish-wrap" id="dishWrap">
+        <canvas id="dishCanvas"></canvas>
+        <div id="inspectTooltip" class="inspect-tooltip hidden"></div>
+      </div>
+      <div class="dish-caption" id="tempReadout"></div>
+    </div>
+
+    <aside class="side-panel" id="sidePanel">
+      <section class="panel-block">
+        <h2>Experiment</h2>
+
+        <div class="control-row">
+          <label for="tempSlider">Temperature <span id="tempValue">30°C</span> <span id="tempLabel" class="temp-tag">OPTIMAL</span></label>
+          <input type="range" id="tempSlider" min="10" max="50" step="1" value="30" />
+        </div>
+
+        <div class="control-row">
+          <label>Simulation Speed</label>
+          <div class="btn-group" id="speedGroup">
+            <button data-speed="0">Pause</button>
+            <button data-speed="1" class="active">1x</button>
+            <button data-speed="2">2x</button>
+            <button data-speed="4">4x</button>
+            <button data-speed="8">8x</button>
+            <button data-speed="16">16x</button>
+          </div>
+        </div>
+
+        <div class="control-row two-col">
+          <div>
+            <label for="mutationSelect">Mutation Rate</label>
+            <select id="mutationSelect">
+              <option value="off">Off</option>
+              <option value="low" selected>Low</option>
+              <option value="medium">Medium</option>
+            </select>
+          </div>
+          <div>
+            <label for="regenSelect">Nutrient Regen</label>
+            <select id="regenSelect">
+              <option value="off">Off</option>
+              <option value="low" selected>Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <label for="presetSelect">Preset</label>
+          <select id="presetSelect"></select>
+        </div>
+
+        <div class="control-row">
+          <label>Visual Mode</label>
+          <div class="btn-group" id="visualModeGroup">
+            <button data-mode="normal" class="active">Normal</button>
+            <button data-mode="nutrients">Nutrients</button>
+            <button data-mode="stress">Stress</button>
+            <button data-mode="age">Age</button>
+          </div>
+        </div>
+
+        <div class="control-row btn-row">
+          <button id="resetDishBtn" class="secondary-btn">Reset Dish</button>
+          <button id="newDishBtn" class="secondary-btn">New Dish</button>
+        </div>
+        <div class="control-row btn-row">
+          <button id="saveDishBtn" class="secondary-btn">Save Dish</button>
+          <button id="loadDishBtn" class="secondary-btn">Load Dish</button>
+        </div>
+      </section>
+
+      <section class="panel-block" id="statsPanel">
+        <h2>Statistics</h2>
+        <div class="stat-line"><span>Colony Coverage</span><b id="statCoverage">0%</b></div>
+        <div class="stat-line"><span>Living Colony Mass</span><b id="statMass">0</b></div>
+        <div class="stat-line"><span>Available Nutrients</span><b id="statNutrient">0%</b></div>
+        <div class="stat-line"><span>Simulation Time</span><b id="statTime">00:00:00</b></div>
+        <div class="stat-line"><span>Dominant Strain</span><b id="statDominant">—</b></div>
+        <div class="stat-line"><span>Temperature</span><b id="statTemp">30°C · OPTIMAL</b></div>
+
+        <div class="strain-stats" id="strainStats"></div>
+      </section>
+    </aside>
+
+  </div>
+
+  <div class="mobile-sheet-tabs" id="mobileSheetTabs">
+    <button data-sheet="tools" class="active">Tools</button>
+    <button data-sheet="settings">Settings</button>
+    <button data-sheet="stats">Stats</button>
+  </div>
+
+  <div class="sheet-scrim" id="sheetScrim"></div>
+
+  <div id="firstRunGuide" class="guide-overlay hidden">
+    <div class="guide-card">
+      <h2>Welcome to Bacteria Bloom</h2>
+      <p class="guide-note">An interactive fictionalized colony-growth model inspired by microbial behavior. Not a laboratory or medical simulation.</p>
+      <ol>
+        <li>Choose a strain.</li>
+        <li>Click the dish to inoculate.</li>
+        <li>Add nutrients or inhibitor zones.</li>
+        <li>Change temperature.</li>
+        <li>Watch colonies compete.</li>
+      </ol>
+      <button id="guideDismiss" class="primary-btn">Begin</button>
+    </div>
+  </div>
+
+  <footer class="disclaimer">
+    An interactive fictionalized colony-growth model inspired by microbial behavior. Not a laboratory or medical simulation.
+  </footer>
+
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/util.js"></script>
+<script src="js/strains.js"></script>
+<script src="js/environment.js"></script>
+<script src="js/colony.js"></script>
+<script src="js/simulation.js"></script>
+<script src="js/presets.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

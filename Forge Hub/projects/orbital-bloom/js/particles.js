@@ -15,8 +15,12 @@ export const pseed = new Float32Array(CAP);  // stable random 0..1 per particle
 export const pspeed = new Float32Array(CAP); // cached speed magnitude (for color mode)
 export const pgrav = new Float32Array(CAP);  // cached local gravity magnitude
 export const pclass = new Uint8Array(CAP);   // 0 bound,1 falling,2 escaping,3 chaotic
+export const pdist = new Float32Array(CAP);  // cached distance to dominant attractor
+export const penergy = new Float32Array(CAP); // cached specific orbital energy vs dominant attractor
+export const pbucket = new Uint8Array(CAP);  // source-body color bucket index, 255 = unset (use seed-based default)
 
 export let count = 0;
+const NO_BUCKET = 255;
 
 export function capacity() { return CAP; }
 
@@ -24,7 +28,7 @@ export function resetParticles() {
   count = 0;
 }
 
-export function spawnParticle(x, y, vx, vy, life = -1) {
+export function spawnParticle(x, y, vx, vy, life = -1, colorBucket = NO_BUCKET) {
   if (count >= CAP) return -1;
   const i = count++;
   px[i] = x; py[i] = y;
@@ -35,6 +39,9 @@ export function spawnParticle(x, y, vx, vy, life = -1) {
   pspeed[i] = Math.hypot(vx, vy);
   pgrav[i] = 0;
   pclass[i] = 0;
+  pdist[i] = 0;
+  penergy[i] = 0;
+  pbucket[i] = colorBucket;
   return i;
 }
 
@@ -49,6 +56,9 @@ export function removeAt(i) {
   pspeed[i] = pspeed[count];
   pgrav[i] = pgrav[count];
   pclass[i] = pclass[count];
+  pdist[i] = pdist[count];
+  penergy[i] = penergy[count];
+  pbucket[i] = pbucket[count];
 }
 
 export function clearNear(cx, cy, radius) {
@@ -72,7 +82,7 @@ export function spawnPattern(opts) {
     angle = 0,          // direction for jet/drift (radians)
     coneSpread = 0.35,  // half-angle for jet cone (radians)
     keplerian = false, centralMass = 0, G = CONSTANTS.G_DEFAULT,
-    lifespan = -1,
+    lifespan = -1, colorBucket = NO_BUCKET,
   } = opts;
 
   let spawned = 0;
@@ -122,8 +132,14 @@ export function spawnPattern(opts) {
       vy += (Math.random() - 0.5) * spread * 22;
     }
 
-    if (spawnParticle(x, y, vx, vy, lifespan) === -1) break;
+    if (spawnParticle(x, y, vx, vy, lifespan, colorBucket) === -1) break;
     spawned++;
   }
   return spawned;
+}
+
+export const BUCKET_NAMES = ['white', 'cyan', 'violet', 'gold', 'blue'];
+export function bucketIndexForColor(colorName) {
+  const idx = BUCKET_NAMES.indexOf(colorName);
+  return idx >= 0 ? idx : NO_BUCKET;
 }
