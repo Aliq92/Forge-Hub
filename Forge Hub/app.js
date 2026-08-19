@@ -64,14 +64,6 @@ const projects = [
     path: "./projects/molt/"
   },
   {
-    title: "Mycelium",
-    slug: "mycelium",
-    category: "simulation",
-    description: "A fungal growth sim where colonies spread biomass through a nutrient network.",
-    status: "prototype",
-    path: "./projects/mycelium/"
-  },
-  {
     title: "Moonlit Terrarium",
     slug: "moonlit-terrarium",
     category: "game",
@@ -102,22 +94,6 @@ const projects = [
     description: "Draft two armies on a shared budget, pick a battlefield and commander doctrine, then watch AI factions fight it out.",
     status: "prototype",
     path: "./projects/battle-sandbox/"
-  },
-  {
-    title: "Ripple Tank",
-    slug: "ripple-tank",
-    category: "simulation",
-    description: "A wave interference apparatus — drop sources into a virtual tank and watch ripples reflect, refract, and interfere.",
-    status: "prototype",
-    path: "./projects/ripple-tank/"
-  },
-  {
-    title: "Static",
-    slug: "static",
-    category: "experiment",
-    description: "A quiet swarm of light motes that flocks, scatters, and gathers in response to your taps and holds.",
-    status: "prototype",
-    path: "./projects/static/"
   },
   {
     title: "Void Drifter",
@@ -182,6 +158,14 @@ const projects = [
     description: "A cozy, mysterious shop-management game that only opens after midnight.",
     status: "prototype",
     path: "./projects/midnight-shopkeeper/"
+  },
+  {
+    title: "Bacteria Bloom",
+    slug: "bacteria-bloom",
+    category: "simulation",
+    description: "An interactive petri-dish colony growth simulator — place bacterial strains, feed them, and watch organic colonies bloom.",
+    status: "prototype",
+    path: "./projects/bacteria-bloom/"
   }
 ];
 
